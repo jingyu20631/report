@@ -173,7 +173,7 @@ game_3d_html = f"""
     </div>
 
     <div id="jumpscare">
-        <img id="jumpscareImg" src="image3.jpeg" alt="Moon Sihoo Jumpscare">
+        <img id="jumpscareImg" src="l_2016090101000023300336701.jpg" alt="Moon Sihoo Jumpscare">
         <div id="jumpscareText">문시후에게 잡혔습니다...</div>
     </div>
 </div>
