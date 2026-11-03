@@ -268,11 +268,11 @@ function initGame() {{
     // 씬 생성
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020202);
-    scene.fog = new THREE.FogExp2(0x020202, 0.08); // 짙은 공포 안개
+    scene.fog = new THREE.FogExp2(0x020202, 0.08);
 
-    // 카메라는 플레이어 시점
+    // 카메라 (플레이어 시점)
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.6, 0); // 눈높이
+    camera.position.set(0, 1.6, 0);
 
     // 렌더러
     renderer = new THREE.WebGLRenderer({{ antialias: true }});
@@ -293,13 +293,13 @@ function initGame() {{
     flashlight.target = camera;
     scene.add(camera);
 
-    ambientLight = new THREE.AmbientLight(0x110505, 0.2); // 아주 미세한 붉은 암광
+    ambientLight = new THREE.AmbientLight(0x110505, 0.2);
     scene.add(ambientLight);
 
-    // 미로/방 공간 벽면 생성
+    // 미로 공간 생성
     buildMap();
 
-    // 문시후 (image3.jpeg) 3D 빌보드 메쉬
+    // 문시후 (l_2016090101000023300336701.jpg) 3D 메쉬
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load('l_2016090101000023300336701.jpg', (texture) => {{
         const monsterMat = new THREE.MeshBasicMaterial({{ map: texture, side: THREE.DoubleSide }});
@@ -308,7 +308,7 @@ function initGame() {{
         spawnMonster();
         scene.add(monsterMesh);
     }}, undefined, () => {{
-        // 이미지 로드 실패 시 대체 빨간 얼굴 메쉬
+        // 로드 실패 시 대체 메쉬
         const canvas = document.createElement('canvas');
         canvas.width = 256; canvas.height = 256;
         const ctx = canvas.getContext('2d');
@@ -341,21 +341,18 @@ function initGame() {{
 }}
 
 function buildMap() {{
-    // 바닥
     const floorGeo = new THREE.PlaneGeometry(60, 60);
     const floorMat = new THREE.MeshStandardMaterial({{ color: 0x111111, roughness: 0.8 }});
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    // 천장
     const ceilMat = new THREE.MeshStandardMaterial({{ color: 0x050505 }});
     const ceil = new THREE.Mesh(floorGeo, ceilMat);
     ceil.position.y = 4;
     ceil.rotation.x = Math.PI / 2;
     scene.add(ceil);
 
-    // 외곽 벽
     const wallMat = new THREE.MeshStandardMaterial({{ color: 0x221111 }});
     const wallGeo = new THREE.BoxGeometry(60, 4, 1);
 
@@ -401,12 +398,10 @@ function animate() {{
     const delta = (time - prevTime) / 1000;
     prevTime = time;
 
-    // 생존 시간 업데이트
     let now = Date.now();
     let surv = ((now - startTime) / 1000).toFixed(1);
     document.getElementById('timer').innerText = surv;
 
-    // 플레이어 이동 조작
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
     direction.normalize();
@@ -414,15 +409,12 @@ function animate() {{
     const speed = 4.5;
     if (moveForward || moveBackward) camera.translateZ(-direction.z * speed * delta);
     if (moveLeft || moveRight) camera.translateX(direction.x * speed * delta);
-    camera.position.y = 1.6; // Y축 고정
+    camera.position.y = 1.6;
 
-    // 벽 경계 충돌
     camera.position.x = Math.max(-28, Math.min(28, camera.position.x));
     camera.position.z = Math.max(-28, Math.min(28, camera.position.z));
 
-    // 문시후 추적 AI
     if (monsterMesh) {{
-        // 플레이어를 향해 상시 회전 (빌보드 효과)
         monsterMesh.lookAt(camera.position);
 
         let dx = camera.position.x - monsterMesh.position.x;
@@ -432,32 +424,28 @@ function animate() {{
         monsterMesh.position.x += (dx / dist) * monsterSpeed;
         monsterMesh.position.z += (dz / dist) * monsterSpeed;
 
-        // 심장 소리
         if (now - lastHeartbeat > Math.max(160, dist * 60)) {{
             playHeartbeat(dist);
             lastHeartbeat = now;
         }}
 
-        // 충돌 체크 (잡혔을 때)
         if (dist < 1.4) {{
             gameOver();
             return;
         }}
     }}
 
-    // 손전등 배터리 감소 및 조명 업데이트
     batteryPower -= 0.04;
     if (batteryPower < 0) batteryPower = 0;
     document.getElementById('battery').innerText = Math.round(batteryPower);
     flashlight.intensity = (batteryPower / 100) * 2.5;
 
-    // 배터리 획득
     let batDist = camera.position.distanceTo(batteryMesh.position);
     if (batDist < 1.5) {{
         batteryPower = Math.min(100, batteryPower + 40);
         spawnBattery();
     }}
-    batteryMesh.rotation.y += 0.03; // 배터리 회전 연출
+    batteryMesh.rotation.y += 0.03;
 
     renderer.render(scene, camera);
 }}
@@ -486,18 +474,4 @@ window.addEventListener('resize', () => {{
 </html>
 """
 
-# Streamlit 3D 화면 임베딩 (전체화면 비율)
 components.html(game_3d_html, height=580)
-
-# 하단 게임 조작 안내
-st.markdown("""
-### 🎮 3D 게임 조작법
-- **시점 고정**: 화면의 **[3D 생존 시작]** 버튼을 클릭하면 3D 시점 고정이 활성화됩니다.
-- **이동**: `W`, `A`, `S`, `D` 또는 `방향키`
-- **시선 이동**: 마우스를 움직여 360도 3D 화면 둘러보기
-- **시점 해제**: `Esc` 키
-- **생존 핵심**:
-  - `image3.jpeg` 메쉬로 형상화된 **문시후**가 어둠 속에서 상시 추적해 옵니다.
-  - 거리별로 달라지는 **3D 심장 소리**로 위치를 예측하세요.
-  - 맵 위에 떠 있는 **초록색 3D 배터리 상자**를 주워 손전등 불빛을 유지하십시오.
-""")
