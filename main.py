@@ -301,7 +301,7 @@ function initGame() {{
 
     // 문시후 (image3.jpeg) 3D 빌보드 메쉬
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('image3.jpeg', (texture) => {{
+    textureLoader.load('l_2016090101000023300336701.jpg', (texture) => {{
         const monsterMat = new THREE.MeshBasicMaterial({{ map: texture, side: THREE.DoubleSide }});
         const monsterGeo = new THREE.PlaneGeometry(2.2, 2.2);
         monsterMesh = new THREE.Mesh(monsterGeo, monsterMat);
