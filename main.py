@@ -1,477 +1,144 @@
+import re
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+import google.generativeai as genai
 import streamlit as st
-import streamlit.components.v1 as components
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="문시후 피하기 3D - Horror Game",
-    page_icon="😱",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    page_title="고성능 AI 미적분 풀이 & 시각화 헬퍼", page_icon="📐", layout="wide"
 )
 
-# 공포 테마 커스텀 CSS
-st.markdown("""
-    <style>
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #030303 !important;
-        color: #ff3333;
-        font-family: 'Courier New', Courier, monospace;
-    }
-    [data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0);
-    }
-    h1 {
-        text-align: center;
-        color: #ff0000 !important;
-        text-shadow: 0px 0px 15px #ff0000;
-        letter-spacing: 5px;
-        margin-bottom: 5px;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #330000;
-        color: #ff4d4d;
-        border: 2px solid #ff0000;
-        font-weight: bold;
-        padding: 12px;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #ff0000;
-        color: #000000;
-        box-shadow: 0px 0px 20px #ff0000;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("👁️ 문시후 피하기 3D")
+st.title("📐 고성능 AI 미적분 풀이 & 그래프 시각화 헬퍼")
+st.caption(
+    "미적분 문제 사진을 올리면 최고 성능 Gemini 모델이 상세 풀이와 함께 그래프 및 핵심 단서(극점, 접선, 적분구간 등)를 시각화합니다."
+)
 
 # 사이드바 설정
-st.sidebar.header("⚙️ 게임 난이도")
-difficulty = st.sidebar.select_slider(
-    "난이도 선택",
-    options=["쉬움", "보통", "어려움", "광기"],
-    value="보통"
+st.sidebar.header("⚙️ 모델 & API 설정")
+api_key = st.sidebar.text_input(
+    "Google Gemini API Key",
+    type="password",
+    help="Google AI Studio(aistudio.google.com)에서 무료 발급 가능합니다.",
 )
 
-speed_map = {"쉬움": 0.035, "보통": 0.05, "어려움": 0.07, "광기": 0.09}
-monster_speed = speed_map[difficulty]
+# 최고 성능 모델 선택 (기본값: gemini-1.5-pro)
+selected_model = st.sidebar.selectbox(
+    "사용할 AI 모델 선택",
+    ["gemini-1.5-pro", "gemini-1.5-flash"],
+    index=0,
+    help="gemini-1.5-pro는 수시/수능 최고난도 미적분 문제 추론 및 수식 분석에 특화된 최고 성능 모델입니다.",
+)
 
-st.caption("🔦 화면을 클릭하면 3D 시점이 고정됩니다. (마우스로 시야 회전, WASD로 이동)")
+# 입력 방식 선택
+input_method = st.radio(
+    "사진 입력 방식 선택", ["파일 업로드", "카메라 촬영"], horizontal=True
+)
 
-# Three.js 3D 공포 게임 엔진 HTML/JS
-game_3d_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            background-color: #000;
-            overflow: hidden;
-            font-family: monospace;
-            user-select: none;
-        }}
-        #gameContainer {{
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }}
-        #uiOverlay {{
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #ffffff;
-            font-size: 18px;
-            text-shadow: 0 0 8px #000, 0 0 3px #ff0000;
-            pointer-events: none;
-            z-index: 10;
-        }}
-        #crosshair {{
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 8px;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 10;
-        }}
-        #startScreen {{
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 20;
-        }}
-        #startBtn {{
-            padding: 16px 36px;
-            font-size: 22px;
-            background: #990000;
-            color: #fff;
-            border: 2px solid #ff0000;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 0 20px #ff0000;
-            border-radius: 4px;
-        }}
-        #startBtn:hover {{
-            background: #ff0000;
-            color: #000;
-        }}
-        #jumpscare {{
-            display: none;
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: #000;
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }}
-        #jumpscareImg {{
-            width: 85%;
-            height: 85%;
-            object-fit: contain;
-            animation: shake 0.08s infinite alternate;
-            filter: drop-shadow(0 0 30px #ff0000) contrast(180%);
-        }}
-        #jumpscareText {{
-            color: #ff0000;
-            font-size: 32px;
-            font-weight: bold;
-            margin-top: 15px;
-            text-shadow: 0 0 15px #ff0000;
-        }}
-        @keyframes shake {{
-            0% {{ transform: translate(5px, 5px) scale(1.02) rotate(0deg); }}
-            50% {{ transform: translate(-5px, -5px) scale(1.08) rotate(-2deg); }}
-            100% {{ transform: translate(5px, -3px) scale(1.05) rotate(2deg); }}
-        }}
-    </style>
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-</head>
-<body>
+uploaded_image = None
+if input_method == "파일 업로드":
+    uploaded_file = st.file_uploader(
+        "미적분 문제 사진 선택 (JPG, PNG)", type=["jpg", "jpeg", "png"]
+    )
+    if uploaded_file:
+        uploaded_image = Image.open(uploaded_file)
+else:
+    camera_file = st.camera_input("문제 사진 촬영")
+    if camera_file:
+        uploaded_image = Image.open(camera_file)
 
-<div id="gameContainer">
-    <div id="crosshair"></div>
-    <div id="uiOverlay">
-        ⏱️ 생존 시간: <span id="timer">0.0</span>초 | 🔋 손전등: <span id="battery">100</span>%
-    </div>
+# 처리 메인 로직
+if uploaded_image:
+    col1, col2 = st.columns([1, 1])
 
-    <div id="startScreen">
-        <button id="startBtn" onclick="initGame()">3D 생존 시작 (클릭)</button>
-    </div>
+    with col1:
+        st.subheader("🖼️ 분석할 문제 사진")
+        st.image(uploaded_image, use_container_width=True)
 
-    <div id="jumpscare">
-        <img id="jumpscareImg" src="l_2016090101000023300336701.jpg" alt="Moon Sihoo Jumpscare">
-        <div id="jumpscareText">문시후에게 잡혔습니다...</div>
-    </div>
-</div>
+    with col2:
+        st.subheader("🚀 문제 분석 및 시각화")
+        st.write(
+            "선택한 모델이 문제의 수식, 극점, 변곡점, 정적분 영역 등을 계산하고 시각화 코드까지 생성합니다."
+        )
+        solve_button = st.button(
+            "✨ AI 풀이 & 그래프 그리기", type="primary", use_container_width=True
+        )
 
-<script>
-let scene, camera, renderer, flashlight, ambientLight;
-let monsterMesh, batteryMesh;
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let prevTime = performance.now();
-let velocity = new THREE.Vector3();
-let direction = new THREE.Vector3();
+    if solve_button:
+        if not api_key:
+            st.error("⚠️ 사이드바에 Google Gemini API Key를 입력해 주세요.")
+        else:
+            with st.spinner(
+                f"{selected_model} 모델이 문제를 분석하고 수식을 그래프로 시각화하는 중입니다..."
+            ):
+                try:
+                    genai.configure(api_key=api_key)
+                    model = genai.GenerativeModel(selected_model)
 
-let gameRunning = false;
-let startTime = 0;
-let batteryPower = 100;
-let monsterSpeed = {monster_speed};
+                    prompt = """
+                    너는 최고의 미적분 수학 교사이자 데이터 시각화 전문가야.
+                    제공된 이미지의 미적분 문제(극한, 미분, 극값, 변곡점, 접선, 정적분, 넓이/부피 등)를 분석하고 답변해줘.
 
-// 웹 오디오 엔진
-let audioCtx = null;
-let lastHeartbeat = 0;
+                    [답변 형식 작성 규칙]
+                    1. 📌 **문제 요약 및 조건 분석**: 주어진 함수 및 핵심 조건 정리
+                    2. 💡 **출제 의도 및 관련 개념**: 사용되는 핵심 미적분 개념 및 공식 (Latex 수식 사용)
+                    3. 📝 **단계별 상세 풀이**: Step 1, Step 2 순서대로 논리적이고 정교하게 풀이 과정 제시
+                    4. ✅ **최종 정답**: 정답을 명확히 강조
 
-function initAudio() {{
-    if (!audioCtx) {{
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }}
-}}
+                    5. 📊 **Matplotlib 그래프 작성 코드를 반드시 아래형식대로 포함해줘**:
+                       - 문제의 함수 f(x), 도함수, 접선, 정적분 영역 등을 시각화하는 파이썬 코드를 작성해.
+                       - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
+                       - 코드 규칙:
+                         * numpy와 matplotlib.pyplot을 사용해.
+                         * 문제에서 중요한 단서(극대/극소, 변곡점, x/y절편, 접점, 정적분 구간 등)는 plt.scatter()와 plt.annotate()로 좌표와 명칭을 그래프 위에 명확히 표시해.
+                         * 필요시 plt.fill_between()으로 정적분 넓이 영역을 칠해줘.
+                         * plt.grid(True), plt.axhline(0, color='black', lw=1), plt.axvline(0, color='black', lw=1)을 기본으로 포함해.
+                         * 한글 깨짐을 방지하기 위해 그래프 텍스트 및 라벨은 알파벳/수식(예: f(x), x, y, Local Max (2, 4)) 형태로 작성해줘.
+                         * 맨 마지막에 plt.show()를 호출하지 말고 fig 객체가 생성되도록 해줘.
+                    """
 
-function playHeartbeat(dist) {{
-    if (!audioCtx || !gameRunning) return;
-    let normDist = Math.max(0, Math.min(1, dist / 25));
-    let osc = audioCtx.createOscillator();
-    let gain = audioCtx.createGain();
+                    response = model.generate_content([prompt, uploaded_image])
+                    response_text = response.text
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(70 - normDist * 30, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(25, audioCtx.currentTime + 0.12);
+                    st.divider()
 
-    gain.gain.setValueAtTime(0.8 * (1 - normDist * 0.75), audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                    # 1. 텍스트 해설 출력
+                    st.subheader("📖 AI 미적분 상세 해설")
+                    st.markdown(response_text)
 
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+                    # 2. 파이썬 코드 추출 및 그래프 실행
+                    st.divider()
+                    st.subheader("📈 미적분 함수 & 핵심 단서 시각화 그래프")
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.12);
-}}
+                    code_match = re.search(
+                        r"```python(.*?)```", response_text, re.DOTALL
+                    )
 
-function playJumpscareSound() {{
-    if (!audioCtx) return;
-    let osc = audioCtx.createOscillator();
-    let gain = audioCtx.createGain();
+                    if code_match:
+                        python_code = code_match.group(1).strip()
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-    osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.4);
+                        # 실행용 안전한 scope 설정
+                        fig, ax = plt.subplots(figsize=(8, 5))
+                        local_scope = {"np": np, "plt": plt, "fig": fig, "ax": ax}
 
-    gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+                        try:
+                            # 코드 실행
+                            exec(python_code, local_scope)
 
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+                            # Matplotlib figure가 파이썬 코드로 그려졌는지 확인 후 Streamlit 출력
+                            st.pyplot(plt.gcf())
+                            plt.close("all")
+                        except Exception as plot_err:
+                            st.warning(
+                                f"그래프 자동 생성 중 오류가 발생했습니다: {plot_err}"
+                            )
+                            with st.expander("생성된 파이썬 코드 보기"):
+                                st.code(python_code, language="python")
+                    else:
+                        st.info(
+                            "이 문제에는 시각화 코드가 생성되지 않았거나 텍스트 위주의 문제 형태입니다."
+                        )
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + 1.5);
-}}
-
-// Pointer Lock (1인칭 마우스 시점)
-let yaw = 0, pitch = 0;
-function setupPointerLock() {{
-    document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-    document.body.requestPointerLock();
-}}
-
-document.addEventListener('mousemove', (e) => {{
-    if (document.pointerLockElement === document.body) {{
-        yaw -= e.movementX * 0.0025;
-        pitch -= e.movementY * 0.0025;
-        pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch));
-
-        camera.rotation.order = "YXZ";
-        camera.rotation.y = yaw;
-        camera.rotation.x = pitch;
-    }}
-}});
-
-function initGame() {{
-    initAudio();
-    setupPointerLock();
-    document.getElementById('startScreen').style.display = 'none';
-    document.getElementById('jumpscare').style.display = 'none';
-
-    // 씬 생성
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020202);
-    scene.fog = new THREE.FogExp2(0x020202, 0.08);
-
-    // 카메라 (플레이어 시점)
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.6, 0);
-
-    // 렌더러
-    renderer = new THREE.WebGLRenderer({{ antialias: true }});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    
-    const container = document.getElementById('gameContainer');
-    if (container.querySelector('canvas')) {{
-        container.querySelector('canvas').remove();
-    }}
-    container.appendChild(renderer.domElement);
-
-    // 조명 (손전등)
-    flashlight = new THREE.SpotLight(0xffffff, 2.5, 20, Math.PI / 5, 0.4, 1);
-    flashlight.castShadow = true;
-    camera.add(flashlight);
-    flashlight.position.set(0, 0, 1);
-    flashlight.target = camera;
-    scene.add(camera);
-
-    ambientLight = new THREE.AmbientLight(0x110505, 0.2);
-    scene.add(ambientLight);
-
-    // 미로 공간 생성
-    buildMap();
-
-    // 문시후 (l_2016090101000023300336701.jpg) 3D 메쉬
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('l_2016090101000023300336701.jpg', (texture) => {{
-        const monsterMat = new THREE.MeshBasicMaterial({{ map: texture, side: THREE.DoubleSide }});
-        const monsterGeo = new THREE.PlaneGeometry(2.2, 2.2);
-        monsterMesh = new THREE.Mesh(monsterGeo, monsterMat);
-        spawnMonster();
-        scene.add(monsterMesh);
-    }}, undefined, () => {{
-        // 로드 실패 시 대체 메쉬
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 256;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ff0000'; ctx.fillRect(0,0,256,256);
-        ctx.fillStyle = '#000000'; ctx.fillText('문시후', 80, 128);
-        const texture = new THREE.CanvasTexture(canvas);
-        const monsterMat = new THREE.MeshBasicMaterial({{ map: texture }});
-        monsterMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), monsterMat);
-        spawnMonster();
-        scene.add(monsterMesh);
-    }});
-
-    // 3D 배터리 아이템
-    const batGeo = new THREE.BoxGeometry(0.4, 0.6, 0.4);
-    const batMat = new THREE.MeshBasicMaterial({{ color: 0x00ffaa }});
-    batteryMesh = new THREE.Mesh(batGeo, batMat);
-    spawnBattery();
-    scene.add(batteryMesh);
-
-    // 키보드 이벤트
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-
-    batteryPower = 100;
-    startTime = Date.now();
-    gameRunning = true;
-    prevTime = performance.now();
-
-    animate();
-}}
-
-function buildMap() {{
-    const floorGeo = new THREE.PlaneGeometry(60, 60);
-    const floorMat = new THREE.MeshStandardMaterial({{ color: 0x111111, roughness: 0.8 }});
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    const ceilMat = new THREE.MeshStandardMaterial({{ color: 0x050505 }});
-    const ceil = new THREE.Mesh(floorGeo, ceilMat);
-    ceil.position.y = 4;
-    ceil.rotation.x = Math.PI / 2;
-    scene.add(ceil);
-
-    const wallMat = new THREE.MeshStandardMaterial({{ color: 0x221111 }});
-    const wallGeo = new THREE.BoxGeometry(60, 4, 1);
-
-    const wallN = new THREE.Mesh(wallGeo, wallMat); wallN.position.set(0, 2, -30); scene.add(wallN);
-    const wallS = new THREE.Mesh(wallGeo, wallMat); wallS.position.set(0, 2, 30); scene.add(wallS);
-    const wallE = new THREE.Mesh(wallGeo, wallMat); wallE.rotation.y = Math.PI/2; wallE.position.set(30, 2, 0); scene.add(wallE);
-    const wallW = new THREE.Mesh(wallGeo, wallMat); wallW.rotation.y = Math.PI/2; wallW.position.set(-30, 2, 0); scene.add(wallW);
-}}
-
-function spawnMonster() {{
-    if (!monsterMesh) return;
-    monsterMesh.position.set((Math.random() - 0.5) * 40, 1.3, (Math.random() - 0.5) * 40);
-}}
-
-function spawnBattery() {{
-    batteryMesh.position.set((Math.random() - 0.5) * 35, 0.4, (Math.random() - 0.5) * 35);
-}}
-
-function onKeyDown(e) {{
-    switch (e.code) {{
-        case 'KeyW': case 'ArrowUp': moveForward = true; break;
-        case 'KeyS': case 'ArrowDown': moveBackward = true; break;
-        case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
-        case 'KeyD': case 'ArrowRight': moveRight = true; break;
-    }}
-}}
-
-function onKeyUp(e) {{
-    switch (e.code) {{
-        case 'KeyW': case 'ArrowUp': moveForward = false; break;
-        case 'KeyS': case 'ArrowDown': moveBackward = false; break;
-        case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
-        case 'KeyD': case 'ArrowRight': moveRight = false; break;
-    }}
-}}
-
-function animate() {{
-    if (!gameRunning) return;
-
-    requestAnimationFrame(animate);
-
-    const time = performance.now();
-    const delta = (time - prevTime) / 1000;
-    prevTime = time;
-
-    let now = Date.now();
-    let surv = ((now - startTime) / 1000).toFixed(1);
-    document.getElementById('timer').innerText = surv;
-
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();
-
-    const speed = 4.5;
-    if (moveForward || moveBackward) camera.translateZ(-direction.z * speed * delta);
-    if (moveLeft || moveRight) camera.translateX(direction.x * speed * delta);
-    camera.position.y = 1.6;
-
-    camera.position.x = Math.max(-28, Math.min(28, camera.position.x));
-    camera.position.z = Math.max(-28, Math.min(28, camera.position.z));
-
-    if (monsterMesh) {{
-        monsterMesh.lookAt(camera.position);
-
-        let dx = camera.position.x - monsterMesh.position.x;
-        let dz = camera.position.z - monsterMesh.position.z;
-        let dist = Math.hypot(dx, dz);
-
-        monsterMesh.position.x += (dx / dist) * monsterSpeed;
-        monsterMesh.position.z += (dz / dist) * monsterSpeed;
-
-        if (now - lastHeartbeat > Math.max(160, dist * 60)) {{
-            playHeartbeat(dist);
-            lastHeartbeat = now;
-        }}
-
-        if (dist < 1.4) {{
-            gameOver();
-            return;
-        }}
-    }}
-
-    batteryPower -= 0.04;
-    if (batteryPower < 0) batteryPower = 0;
-    document.getElementById('battery').innerText = Math.round(batteryPower);
-    flashlight.intensity = (batteryPower / 100) * 2.5;
-
-    let batDist = camera.position.distanceTo(batteryMesh.position);
-    if (batDist < 1.5) {{
-        batteryPower = Math.min(100, batteryPower + 40);
-        spawnBattery();
-    }}
-    batteryMesh.rotation.y += 0.03;
-
-    renderer.render(scene, camera);
-}}
-
-function gameOver() {{
-    gameRunning = false;
-    document.exitPointerLock();
-    playJumpscareSound();
-    document.getElementById('jumpscare').style.display = 'flex';
-
-    setTimeout(() => {{
-        document.getElementById('startScreen').style.display = 'flex';
-        document.getElementById('startBtn').innerText = '다시 3D 생존 도전';
-    }}, 2500);
-}}
-
-window.addEventListener('resize', () => {{
-    if (camera && renderer) {{
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }}
-}});
-</script>
-</body>
-</html>
-"""
-
-components.html(game_3d_html, height=580)
+                except Exception as e:
+                    st.error(f"오류 발생: {e}")
