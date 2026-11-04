@@ -15,7 +15,7 @@ st.title("📐 고성능 AI 미적분 풀이 & 그래프 시각화 헬퍼")
 st.caption("문제 사진을 올리면 API에서 감지된 Gemini 모델이 풀이와 핵심 단서를 시각화합니다.")
 
 # -------------------------------------------------------------------
-# 사이드바: API 키 입력 및 실제 API 동적 모델 로딩
+# 사이드바: API 키 및 무료 플랜 추천 모델 로딩
 # -------------------------------------------------------------------
 st.sidebar.header("🔑 API 및 모델 설정")
 
@@ -32,59 +32,61 @@ api_key_input = st.sidebar.text_input(
 if api_key_input:
     st.session_state["api_key"] = api_key_input.strip()
 
-# 실제 API 키에 할당된 모델 목록 동적 조회
+# 무료 티어에서 안정적인 모델 위주로 필터링
 available_models = []
 if st.session_state["api_key"]:
     try:
         genai.configure(api_key=st.session_state["api_key"])
-        # generateContent를 지원하는 gemini 계열 모델만 자동 필터링
+        
+        # 기본 추천 우선순위 모델
+        priority_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        
+        fetched_models = []
         for m in genai.list_models():
             if "generateContent" in m.supported_generation_methods:
-                model_name = m.name.replace("models/", "")
-                if model_name.startswith("gemini"):
-                    available_models.append(model_name)
-        
+                name = m.name.replace("models/", "")
+                # 쿼터 오류가 잦은 3-pro-image, experimental, embedding 모델 제외
+                if "gemini" in name and not any(x in name for x in ["image", "exp", "embedding", "bison"]):
+                    fetched_models.append(name)
+
+        # 우선순위 모델을 맨 앞으로 정렬
+        for p in priority_models:
+            if p in fetched_models:
+                available_models.append(p)
+        for f in fetched_models:
+            if f not in available_models:
+                available_models.append(f)
+
         if available_models:
-            st.sidebar.success(f"✅ 사용 가능한 모델 {len(available_models)}개 감지됨")
+            st.sidebar.success(f"✅ 안정적인 모델 {len(available_models)}개 감지됨")
         else:
             st.sidebar.warning("⚠️ 사용 가능한 Gemini 모델을 찾지 못했습니다.")
     except Exception as e:
-        st.sidebar.error(f"API 키 확인 실패: {e}")
+        st.sidebar.error(f"API 키 검증 실패: {e}")
 
-# API 키 입력 전 안내 또는 모델 선택 드롭다운
 if available_models:
-    selected_model = st.sidebar.selectbox("사용 가능한 AI 모델 선택", available_models, index=0)
+    selected_model = st.sidebar.selectbox("사용할 AI 모델 선택 (Flash 추천)", available_models, index=0)
 
-    # 선택된 모델의 키워드(Flash/Pro 등) 기반 속성 및 장단점 자동 요약
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📋 선택된 모델 속성")
-
+    st.sidebar.subheader("📋 선택된 모델 정보")
+    
     model_lower = selected_model.lower()
     if "flash" in model_lower:
-        speed = "⚡⚡⚡ 매우 빠름"
-        desc = "경량화된 실시간 처리 모델"
-        pros = "빠른 텍스트/이미지 응답 속도 및 높은 안정성"
-        cons = "초고난도 복합 추론 문제는 단계별 검증이 필요할 수 있음"
+        speed = "⚡⚡⚡ 매우 빠름 (무료 쿼터 넉넉함)"
+        desc = "무료 요금제 사용 시 가장 안정적이고 빠른 모델"
     elif "pro" in model_lower:
-        speed = "🧠🐢 둔하지만 정교함"
-        desc = "심층 추론 및 논리 연산 전문 모델"
-        pros = "킬러문항, 조건 분석, 정밀 수식 및 코드 생성에 강함"
-        cons = "응답 완료까지 상대적으로 시간이 더 오래 걸림"
+        speed = "🧠🐢 둔함 (일일 제한 엄격)"
+        desc = "고난도 추론용 (무료 요금제 시 429 오류 가능성 있음)"
     else:
         speed = "⚡ 표준"
-        desc = "범용 Gemini 처리 모델"
-        pros = "기본적인 이미지 인식 및 풀이 능력 지원"
-        cons = "모델 특성에 따라 응답 속도가 다를 수 있음"
+        desc = "일반 Gemini 처리 모델"
 
     st.sidebar.markdown(f"**모델명:** `{selected_model}`")
-    st.sidebar.markdown(f"**속도:** {speed}")
+    st.sidebar.markdown(f"**상태:** {speed}")
     st.sidebar.markdown(f"ℹ️ **설명:** {desc}")
-    st.sidebar.markdown(f"👍 **장점:** {pros}")
-    st.sidebar.markdown(f"👎 **단점:** {cons}")
-
 else:
     selected_model = None
-    st.sidebar.info("💡 사이드바에 유효한 Gemini API Key를 입력하면 목록이 표시됩니다.")
+    st.sidebar.info("💡 사이드바에 유효한 Gemini API Key를 입력하세요.")
 
 # -------------------------------------------------------------------
 # 메인 화면: 사진 입력
@@ -102,7 +104,7 @@ else:
         uploaded_image = Image.open(camera_file)
 
 # -------------------------------------------------------------------
-# 풀이 및 시각화 로직
+# 풀이 및 예외 처리 강화 로직
 # -------------------------------------------------------------------
 if uploaded_image:
     col1, col2 = st.columns([1, 1])
@@ -113,11 +115,7 @@ if uploaded_image:
 
     with col2:
         st.subheader("🚀 문제 분석 및 시각화")
-        if selected_model:
-            st.write(f"현재 선택된 모델: **{selected_model}**")
-        else:
-            st.write("선택된 모델 없음 (API 키 필요)")
-
+        st.write(f"현재 선택된 모델: **{selected_model}**")
         solve_button = st.button("✨ AI 풀이 & 그래프 그리기", type="primary", use_container_width=True)
 
     if solve_button:
@@ -126,7 +124,7 @@ if uploaded_image:
         if not active_api_key or not selected_model:
             st.error("⚠️ API Key를 입력하고 사용 가능한 모델을 선택해 주세요.")
         else:
-            with st.spinner(f"[{selected_model}] 모델이 문제와 그래프를 분석하는 중입니다..."):
+            with st.spinner(f"[{selected_model}] 모델로 분석하는 중입니다..."):
                 try:
                     genai.configure(api_key=active_api_key)
                     model = genai.GenerativeModel(selected_model)
@@ -142,15 +140,9 @@ if uploaded_image:
                     4. ✅ **최종 정답**: 정답을 명확히 강조
 
                     5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 반드시 작성해줘**:
-                       - 문제에 등장하는 함수 f(x), 도함수, 접선, 또는 정적분 영역을 시각화하는 파이썬 코드를 포함해.
-                       - 코드 블록은 반드시 ```python 로 시작하고 ``` 로 끝내야 해.
-                       - 코드 작성 조건:
-                         * numpy와 matplotlib.pyplot을 사용해.
-                         * 문제의 핵심 단서(극대/극소, 변곡점, x/y절편, 접점, 정적분 구간 등)는 plt.scatter()와 plt.annotate()로 좌표 및 라벨을 그래프 위에 명확히 표시해.
-                         * 필요시 plt.fill_between()으로 정적분 넓이 영역을 색칠해.
-                         * plt.grid(True), plt.axhline(0, color='black', lw=1), plt.axvline(0, color='black', lw=1)을 기본으로 포함해.
-                         * 한글 깨짐 방지를 위해 그래프 내부 라벨은 영문/수식(예: f(x), x, y, Local Max (2, 4))으로 작성해줘.
-                         * 맨 마지막에 plt.show()를 쓰지 말고 fig 객체가 생성되도록 해줘.
+                       - 문제의 함수 f(x), 접선, 정적분 영역 시각화
+                       - ```python 코드로 작성하고 plt.show() 대신 fig/ax 객체 활용
+                       - 한글 깨짐 방지를 위해 라벨은 영문/수식(예: f(x), Local Max (2, 4)) 사용
                     """
 
                     response = model.generate_content([prompt, uploaded_image])
@@ -175,11 +167,20 @@ if uploaded_image:
                             st.pyplot(plt.gcf())
                             plt.close("all")
                         except Exception as plot_err:
-                            st.warning(f"그래프 시각화 코드 실행 중 오류가 발생했습니다: {plot_err}")
+                            st.warning(f"그래프 코드 실행 중 오류가 발생했습니다: {plot_err}")
                             with st.expander("생성된 파이썬 코드 확인"):
                                 st.code(python_code, language="python")
                     else:
-                        st.info("이 문제에는 그래프 시각화 코드가 생성되지 않았거나 수식 중심 문제입니다.")
+                        st.info("이 문제에는 그래프 시각화 코드가 생성되지 않았습니다.")
 
                 except Exception as e:
-                    st.error(f"오류가 발생했습니다: {e}")
+                    err_msg = str(e)
+                    if "429" in err_msg or "Quota exceeded" in err_msg:
+                        st.error("🚨 **API 일일/분당 사용량(Quota) 초과 오류가 발생했습니다.**")
+                        st.warning("""
+                        **해결 방법:**
+                        1. 사이드바에서 모델을 **`gemini-1.5-flash`**로 변경한 후 다시 시도하세요.
+                        2. [Google AI Studio](https://aistudio.google.com/)에서 새로운 API Key를 발급받아 입력하세요.
+                        """)
+                    else:
+                        st.error(f"오류가 발생했습니다: {e}")
