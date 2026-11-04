@@ -5,18 +5,45 @@ from PIL import Image
 import google.generativeai as genai
 import streamlit as st
 
-# 페이지 기본 설정
+# 페이지 설정
 st.set_page_config(
-    page_title="고성능 AI 미적분 풀이 & 시각화 헬퍼", page_icon="📐", layout="wide"
+    page_title="고성능 AI 미적분 풀이 & 시각화 헬퍼",
+    page_icon="📐",
+    layout="wide"
 )
 
 st.title("📐 고성능 AI 미적분 풀이 & 그래프 시각화 헬퍼")
-st.caption(
-    "미적분 문제 사진을 올리면 AI가 상세 풀이와 함께 그래프 및 핵심 단서(극점, 접선, 정적분 구간 등)를 시각화합니다."
-)
+st.caption("문제 사진을 올리면 AI가 풀이와 핵심 단서(극점, 접선, 정적분 영역)를 시각화합니다.")
 
 # -------------------------------------------------------------------
-# 사이드바: API 키 및 모델 설정
+# AI 모델별 특성 및 장단점 DB (짧고 명확한 요약)
+# -------------------------------------------------------------------
+MODEL_INFO = {
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "speed": "⚡⚡⚡ 매우 빠름",
+        "desc": "일반적인 내신 및 모의고사 미적분 문제 풀이에 최적화된 표준 모델.",
+        "pros": "응답 속도가 2~3초로 매우 빠르고, 그래프 코드 생성 성공률이 안정적임.",
+        "cons": "수능 21, 30번급 극악 난이도 문제는 복잡한 추론 과정에서 오류가 날 수 있음."
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "speed": "🚀🚀🚀 초고속 + 최신",
+        "desc": "속도와 수식 추론 능력을 대폭 끌어올린 차세대 실시간 처리 모델.",
+        "pros": "이미지 인식 정확도가 높고 복잡한 연산을 빠르게 다룸.",
+        "cons": "최신 모델 특성상 일부 API 환경에서 쿼터 제한이 더 타이트할 수 있음."
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro",
+        "speed": "🧠🐢 둔하지만 정교함",
+        "desc": "수능 킬러문항, 경시대회급 고난도 미적분 조건 분석 전용 지능형 모델.",
+        "pros": "복잡한 미적분 정의, 변곡점 추론, 정밀한 단계별 논리가 매우 뛰어남.",
+        "cons": "답변 생성까지 10~20초 이상 소요되며 API 일일 호출 제한량이 적음."
+    }
+}
+
+# -------------------------------------------------------------------
+# 사이드바: API 키 및 모델 선택
 # -------------------------------------------------------------------
 st.sidebar.header("🔑 API 및 모델 설정")
 
@@ -27,45 +54,59 @@ api_key_input = st.sidebar.text_input(
     "Google Gemini API Key 입력",
     value=st.session_state["api_key"],
     type="password",
-    help="Google AI Studio(aistudio.google.com)에서 무료로 발급할 수 있습니다.",
+    help="Google AI Studio(aistudio.google.com)에서 발급받은 키를 입력하세요."
 )
 
 if api_key_input:
-    st.session_state["api_key"] = api_key_input
-    st.sidebar.success("✅ API 키가 설정되었습니다.")
+    st.session_state["api_key"] = api_key_input.strip()
+    st.sidebar.success("✅ API 키 설정 완료")
 
-# 안정적인 기본 모델 목록 (에러 방지용 -latest 식별자 사용)
-default_models = {
-    "Gemini 1.5 Flash (⚡ 추천: 빠르고 정확함)": "gemini-1.5-flash-latest",
-    "Gemini 2.0 Flash (🚀 최신 초고속 모델)": "gemini-2.0-flash",
-    "Gemini 1.5 Pro (🧠 고난도 킬러문항 전용)": "gemini-1.5-pro-latest",
-}
+# 1. 사용할 수 있는 미적분 추천 모델 목록 정리
+selectable_models = list(MODEL_INFO.keys())
 
-# API 키가 입력되었을 경우 실제 호출 가능한 모델 목록 가져오기 시도
-available_models = default_models
+# API 키가 있으면 사용 가능한 모델을 자동 필터링하여 동적 추가
 if st.session_state["api_key"]:
     try:
         genai.configure(api_key=st.session_state["api_key"])
-        fetched_models = {}
+        active_list = []
         for m in genai.list_models():
+            # 텍스트/이미지 기반 풀이가 가능한 generateContent 지원 모델만 추출
             if "generateContent" in m.supported_generation_methods and "gemini" in m.name:
-                clean_name = m.name.replace("models/", "")
-                fetched_models[f"{clean_name}"] = clean_name
-        if fetched_models:
-            available_models = fetched_models
+                name_clean = m.name.replace("models/", "")
+                # 임베딩/오디오 모델 제외
+                if not any(x in name_clean for x in ["embedding", "bison", "imagen", "audio"]):
+                    active_list.append(name_clean)
+        
+        # 목록 합치기 (추천 모델 우선 배치를 위해 중복 제거 유지를 적용)
+        for act in active_list:
+            if act not in selectable_models and ("flash" in act or "pro" in act):
+                selectable_models.append(act)
     except Exception:
-        pass  # 조회 실패 시 기본 안전 목록 사용
+        pass
 
-selected_label = st.sidebar.selectbox("AI 모델 선택", list(available_models.keys()), index=0)
-selected_model = available_models[selected_label]
+# 2. 모델 선택 드롭다운
+selected_model = st.sidebar.selectbox("사용할 AI 모델 선택", selectable_models, index=0)
 
+# 3. 선택한 모델 장단점 카드 출력
 st.sidebar.markdown("---")
-st.sidebar.write("💡 **사용 가이드**")
-st.sidebar.write("1. API 키 입력 후 **Flash** 계열 모델을 선택하면 빠른 풀이가 진행됩니다.")
-st.sidebar.write("2. 수식과 그래프가 또렷하게 보이도록 정면 사진을 올려주세요.")
+st.sidebar.subheader("📋 선택한 AI 정보")
+
+info = MODEL_INFO.get(selected_model, {
+    "name": selected_model,
+    "speed": "⚡ 표준",
+    "desc": "사용자 API 키 목록에서 자동 감지된 Gemini 모델입니다.",
+    "pros": "기본 수식 및 이미지 추론이 가능합니다.",
+    "cons": "고난도 문제의 경우 답변 속도와 정확도가 다를 수 있습니다."
+})
+
+st.sidebar.markdown(f"**모델명:** `{info['name']}`")
+st.sidebar.markdown(f"**속도:** {info['speed']}")
+st.sidebar.markdown(f"ℹ️ **설명:** {info['desc']}")
+st.sidebar.markdown(f"👍 **장점:** {info['pros']}")
+st.sidebar.markdown(f"👎 **단점:** {info['cons']}")
 
 # -------------------------------------------------------------------
-# 메인화면: 사진 입력
+# 메인 화면: 사진 입력
 # -------------------------------------------------------------------
 input_method = st.radio("사진 입력 방식 선택", ["파일 업로드", "카메라 직접 촬영"], horizontal=True)
 
@@ -80,7 +121,7 @@ else:
         uploaded_image = Image.open(camera_file)
 
 # -------------------------------------------------------------------
-# AI 분석 및 시각화 로직
+# 풀이 및 시각화 로직
 # -------------------------------------------------------------------
 if uploaded_image:
     col1, col2 = st.columns([1, 1])
@@ -91,16 +132,16 @@ if uploaded_image:
 
     with col2:
         st.subheader("🚀 문제 분석 및 시각화")
-        st.write(f"선택된 모델: **{selected_model}**")
+        st.write(f"현재 가동 중인 모델: **{selected_model}**")
         solve_button = st.button("✨ AI 풀이 & 그래프 그리기", type="primary", use_container_width=True)
 
     if solve_button:
         active_api_key = st.session_state.get("api_key", "").strip()
 
         if not active_api_key:
-            st.error("⚠️ 사이드바에 Google Gemini API Key를 입력해 주세요.")
+            st.error("⚠️ 사이드바에 API Key를 먼저 입력해 주세요!")
         else:
-            with st.spinner(f"[{selected_model}] 모델이 풀이 및 그래프 코드를 생성 중입니다..."):
+            with st.spinner(f"[{selected_model}] 모델이 분석 및 그래프 코드를 생성 중입니다..."):
                 try:
                     genai.configure(api_key=active_api_key)
                     model = genai.GenerativeModel(selected_model)
@@ -149,11 +190,11 @@ if uploaded_image:
                             st.pyplot(plt.gcf())
                             plt.close("all")
                         except Exception as plot_err:
-                            st.warning(f"그래프 코드 실행 중 오류가 발생했습니다: {plot_err}")
+                            st.warning(f"그래프 시각화 코드 실행 중 오류가 발생했습니다: {plot_err}")
                             with st.expander("생성된 파이썬 코드 확인"):
                                 st.code(python_code, language="python")
                     else:
-                        st.info("이 문제에는 그래프 시각화 코드가 포함되지 않았습니다.")
+                        st.info("이 문제에는 그래프 시각화 코드가 생성되지 않았거나 수식 중심 문제입니다.")
 
                 except Exception as e:
                     st.error(f"오류가 발생했습니다: {e}")
