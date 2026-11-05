@@ -6,7 +6,7 @@ from PIL import Image
 import google.generativeai as genai
 import streamlit as st
 
-# 1. 페이지 설정 및 다크(블랙) 테마 커스텀 CSS 적용
+# 1. 페이지 설정 및 다크 테마 CSS 적용 (가독성 개선)
 st.set_page_config(
     page_title="AI 미적분 헬퍼 (Dark Edition)",
     page_icon="📐",
@@ -15,27 +15,91 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 전체 배경 블랙 & 글자 화이트 설정 */
+    /* 전체 앱 배경 */
     .stApp {
-        background-color: #050505;
-        color: #ffffff;
+        background-color: #090a0f;
+        color: #f8fafc;
     }
     header, footer {
-        background-color: #050505 !important;
-    }
-    p, h1, h2, h3, h4, h5, h6, label, div, span {
-        color: #ffffff !important;
+        background-color: #090a0f !important;
     }
     
+    /* 기본 텍스트 색상 */
+    h1, h2, h3, h4, h5, h6, p, label {
+        color: #f8fafc !important;
+    }
+
     /* 사이드바 스타일링 */
     section[data-testid="stSidebar"] {
-        background-color: #121212 !important;
-        border-right: 1px solid #222222;
+        background-color: #11131f !important;
+        border-right: 1px solid #1e293b;
     }
-    
-    /* 버튼 스타일링 */
+
+    /* -----------------------------------------------------------
+       [1] AI 드롭다운 및 입력 필드 가독성 수정 (흰색 글씨 겹침 해결)
+       ----------------------------------------------------------- */
+    /* Selectbox 메인 입력창 */
+    div[data-baseweb="select"] > div {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+    }
+    /* Selectbox 드롭다운 팝업 목록 전체 */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+        background-color: #1e293b !important;
+    }
+    /* Selectbox 팝업 내 개별 옵션 항목 */
+    li[role="option"] {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+    }
+    /* Selectbox 호버 및 선택 시 배경/글자색 */
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+        background-color: #38bdf8 !important;
+        color: #0f172a !important;
+    }
+    /* Text Input 입력 영역 */
+    input[type="text"], input[type="password"] {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+    }
+
+    /* -----------------------------------------------------------
+       [2] 파일 업로드 및 카메라 입력 박스 색 대비 강화
+       ----------------------------------------------------------- */
+    /* 업로드 드롭존 구역 */
+    section[data-testid="stFileUploadDropzone"] {
+        background-color: #1e293b !important;
+        border: 2px dashed #38bdf8 !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+    }
+    section[data-testid="stFileUploadDropzone"] * {
+        color: #f1f5f9 !important;
+    }
+    /* 업로드 버튼 내부 */
+    section[data-testid="stFileUploadDropzone"] button {
+        background-color: #0f172a !important;
+        color: #38bdf8 !important;
+        border: 1px solid #38bdf8 !important;
+    }
+
+    /* 라디오 버튼 카드 형태 대비 강조 */
+    div[data-testid="stRadio"] > div {
+        background-color: #1e293b;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+    }
+
+    /* -----------------------------------------------------------
+       [3] 기본 버튼 및 플로팅 말풍선 버튼 스타일링
+       ----------------------------------------------------------- */
     .stButton>button {
-        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         color: #38bdf8 !important;
         border: 1px solid #38bdf8;
         border-radius: 8px;
@@ -43,10 +107,10 @@ st.markdown("""
     }
     .stButton>button:hover {
         background: #38bdf8;
-        color: #000000 !important;
+        color: #0f172a !important;
     }
 
-    /* 우측 하단 고정 말풍선 (Floating Popover) 위치 설정 */
+    /* 우측 하단 플로팅 말풍선 (Chat Popover) */
     div[data-testid="stPopover"] {
         position: fixed;
         bottom: 35px;
@@ -58,9 +122,9 @@ st.markdown("""
         height: 60px;
         border-radius: 50% !important;
         background-color: #38bdf8 !important;
-        color: #000000 !important;
+        color: #0f172a !important;
         font-size: 24px;
-        box-shadow: 0px 4px 15px rgba(56, 189, 248, 0.4);
+        box-shadow: 0px 4px 20px rgba(56, 189, 248, 0.5);
         border: none !important;
     }
 </style>
@@ -94,7 +158,6 @@ api_key_input = st.sidebar.text_input(
 if api_key_input:
     st.session_state["api_key"] = api_key_input.strip()
 
-# 사용 가능한 Gemini 모델 감지
 valid_models = []
 if st.session_state["api_key"]:
     try:
@@ -210,30 +273,27 @@ if uploaded_image:
                         python_code = code_match.group(1).strip()
                         fig, ax = plt.subplots(figsize=(8, 5))
                         
-                        # 다크 모드 그래프 스타일 설정
                         plt.style.use('dark_background')
-                        fig.patch.set_facecolor('#050505')
-                        ax.set_facecolor('#050505')
+                        fig.patch.set_facecolor('#090a0f')
+                        ax.set_facecolor('#090a0f')
 
                         local_scope = {"np": np, "plt": plt, "fig": fig, "ax": ax}
 
                         try:
                             exec(python_code, local_scope)
                             
-                            # Matplotlib Figure를 Plotly 인터랙티브 그래프로 변환하여 출력 (기능 3)
-                            # 호버, 줌, 펜 탐색 기능 지원
+                            # Matplotlib Figure -> Plotly 인터랙티브 그래프 변환
                             plotly_fig = go.Figure(fig)
                             plotly_fig.update_layout(
                                 template="plotly_dark",
-                                paper_bgcolor="#050505",
-                                plot_bgcolor="#050505",
+                                paper_bgcolor="#090a0f",
+                                plot_bgcolor="#090a0f",
                                 margin=dict(l=20, r=20, t=30, b=20)
                             )
                             st.plotly_chart(plotly_fig, use_container_width=True)
                             plt.close("all")
                             
-                        except Exception as plot_err:
-                            # 실행 불가 시 기본 Matplotlib 렌더링
+                        except Exception:
                             try:
                                 st.pyplot(plt.gcf())
                                 plt.close("all")
@@ -245,22 +305,20 @@ if uploaded_image:
                     st.error("🚨 사용 가능한 Gemini 모델의 요청 범위를 초과했습니다. 잠시 후 시도하거나 새 API 키를 입력해 주세요.")
 
 # -------------------------------------------------------------------
-# [기능 1] 우측 하단 플로팅 말풍선 버튼 -> 1:1 꼬리질문 AI 튜터 챗봇 Window
+# [우측 하단] 1:1 꼬리질문 AI 튜터 챗봇 Window
 # -------------------------------------------------------------------
 with st.popover("💬", help="AI 튜터에게 1:1 꼬리질문 하기"):
     st.markdown("### 💬 AI 튜터 1:1 질의응답")
     st.caption("해설 내용 중 이해가 안 되는 수식이나 개념을 자유롭게 질문하세요!")
 
-    # 챗 히스토리 렌더링
     chat_container = st.container(height=350)
     with chat_container:
         if not st.session_state["chat_history"]:
-            st.info("👋 안녕하세요! 풀이 과정 중 궁금한 점(예: Step 2에서 극값 구하는 이유)을 물어보세요.")
+            st.info("👋 안녕하세요! 풀이 과정 중 궁금한 점을 물어보세요.")
         for msg in st.session_state["chat_history"]:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-    # 질문 입력창
     user_query = st.chat_input("질문을 입력하세요...")
     if user_query:
         st.session_state["chat_history"].append({"role": "user", "content": user_query})
@@ -269,7 +327,7 @@ with st.popover("💬", help="AI 튜터에게 1:1 꼬리질문 하기"):
         if not active_key:
             st.session_state["chat_history"].append({"role": "assistant", "content": "⚠️ 먼저 사이드바에 API Key를 입력해 주세요!"})
         else:
-            genai.configure(api_key=active_api_key)
+            genai.configure(api_key=active_key)
             tutor_model = genai.GenerativeModel(selected_model or "gemini-2.0-flash")
             
             explanation_context = st.session_state.get("last_explanation", "아직 해설된 문제 없음")
