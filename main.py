@@ -1,5 +1,6 @@
 import re
 import time
+import platform
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -13,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 다크 테마 커스텀 CSS (채팅 입력창 글자색 검정 & 배경 흰색 완벽 반영)
+# 2. 다크 테마 커스텀 CSS (가독성 & UI 디자인 완벽 반영)
 st.markdown("""
 <style>
     /* 전체 앱 배경 */
@@ -87,7 +88,7 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       [완벽 수정] 채팅 입력창 글자색 검정 & 배경 흰색 (고대비)
+       [채팅 입력창] 글자색 검정 & 배경 흰색 (고대비)
        ----------------------------------------------------------- */
     div[data-testid="stChatInput"] textarea,
     div[data-testid="stChatInput"] input {
@@ -176,8 +177,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📐 AI 미적분 풀이 & 시각화 헬퍼")
-st.caption("사진을 업로드하면 AI가 단계별 풀이와 선명한 미적분 시각화 그래프를 제공합니다.")
+st.title("📐 AI 미적분 풀이 & 인터랙티브 시각화 헬퍼")
+st.caption("사진을 업로드하면 AI가 단계별 풀이와 함께 한국어로 표시된 맞춤형 인터랙티브 그래프를 생성합니다.")
 
 # -------------------------------------------------------------------
 # 세션 상태(Session State)
@@ -188,6 +189,8 @@ if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 if "last_explanation" not in st.session_state:
     st.session_state["last_explanation"] = ""
+if "generated_python_code" not in st.session_state:
+    st.session_state["generated_python_code"] = ""
 
 # -------------------------------------------------------------------
 # 사이드바: API 키 및 모델 선택
@@ -246,7 +249,7 @@ else:
         uploaded_image = Image.open(camera_file)
 
 # -------------------------------------------------------------------
-# 풀이 및 시각화 로직
+# 풀이 및 시각화 생성 로직
 # -------------------------------------------------------------------
 if uploaded_image:
     col1, col2 = st.columns([1, 1])
@@ -258,7 +261,7 @@ if uploaded_image:
     with col2:
         st.subheader("🚀 문제 분석 및 그래프 생성")
         st.write(f"가동 모델: **`{selected_model}`**")
-        solve_button = st.button("✨ AI 풀이 & 그래프 시각화", type="primary", use_container_width=True)
+        solve_button = st.button("✨ AI 풀이 & 인터랙티브 그래프 생성", type="primary", use_container_width=True)
 
     if solve_button:
         active_api_key = st.session_state.get("api_key", "").strip()
@@ -266,7 +269,7 @@ if uploaded_image:
         if not active_api_key:
             st.error("⚠️ 사이드바에 API Key를 먼저 입력해 주세요!")
         else:
-            with st.spinner(f"[{selected_model}] 모델이 분석을 진행 중입니다..."):
+            with st.spinner(f"[{selected_model}] 모델이 분석 중입니다..."):
                 genai.configure(api_key=active_api_key)
 
                 prompt = """
@@ -282,11 +285,19 @@ if uploaded_image:
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
                    - import matplotlib.pyplot as plt 및 import numpy as np 포함
-                   - 다크 배경 시각화를 위해 plt.style.use('dark_background') 적용
-                   - f(x) 곡선: plt.plot(x, y, label='f(x)', color='#38bdf8', linewidth=2.5)
-                   - 극점/특이점: plt.scatter(x0, y0, color='#f59e0b', s=50, zorder=5) 및 plt.annotate()
-                   - 모든 축, 눈금, 글자는 흰색('white')
-                   - plt.grid(True, color='#334155', alpha=0.5)
+                   - **[필수] 모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.**
+                     (예: '함수 f(x)', '접선 y=2x+1', '극댓값 (1, 4)', '극솟값', '변곡점', '정적분 영역 S', 'x축', 'y축')
+                   - **[필수] 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표시**:
+                     * plt.scatter()로 주요 포인트를 정확히 지점 표기
+                     * plt.annotate()로 좌표 및 한국어 라벨 달아주기
+                   - **[슬라이더 연동]** x축 범위를 생성할 때 `x_limit` 변수를 사용해줘:
+                     (예: `x = np.linspace(-x_limit, x_limit, 400)`)
+                   - 색상 가이드:
+                     * 주 함수 f(x): 하늘색 ('#38bdf8', lw=2.5)
+                     * 도함수/접선: 핑크색 ('#f43f5e', lw=2)
+                     * 핵심 좌표점: 노란색/연두색 ('#f59e0b', '#10b981', s=60)
+                     * 모든 축 및 눈금: 흰색 ('white')
+                     * plt.grid(True, color='#334155', alpha=0.5)
                    - 맨 마지막에 plt.show()를 작성하지 마.
                 """
 
@@ -310,51 +321,83 @@ if uploaded_image:
                             break
 
                 if response_text:
-                    # 파이썬 코드 추출 후 해설 텍스트에서 코드 블록 완벽 제거
+                    # 코드 추출 및 저장
                     code_match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
                     clean_explanation = re.sub(r"```python.*?```", "", response_text, flags=re.DOTALL).strip()
 
                     st.session_state["last_explanation"] = clean_explanation
-
-                    st.divider()
-                    st.subheader("📖 AI 미적분 상세 해설")
-                    st.markdown(clean_explanation)
-
-                    st.divider()
-                    st.subheader("📈 미적분 함수 & 핵심 단서 시각화")
-
                     if code_match:
-                        python_code = code_match.group(1).strip()
-                        
-                        try:
-                            # 캔버스 초기화
-                            plt.close("all")
-                            plt.style.use('dark_background')
-                            
-                            local_scope = {"np": np, "plt": plt}
-                            exec(python_code, local_scope)
-                            
-                            # 활성화된 Figure를 가져와 다크 테마 커스텀 입히기
-                            fig = plt.gcf()
-                            fig.patch.set_facecolor('#111827')
-                            
-                            for ax in fig.get_axes():
-                                ax.set_facecolor('#1e293b')
-                                ax.tick_params(colors='white', labelsize=10)
-                                ax.xaxis.label.set_color('white')
-                                ax.yaxis.label.set_color('white')
-                                ax.title.set_color('white')
-                                for spine in ax.spines.values():
-                                    spine.set_color('#475569')
-
-                            st.pyplot(fig, use_container_width=True)
-                            plt.close("all")
-                        except Exception as plot_err:
-                            st.warning(f"그래프 렌더링 중 오류가 발생했습니다: {plot_err}")
+                        st.session_state["generated_python_code"] = code_match.group(1).strip()
                     else:
-                        st.info("이 문제에는 시각화 코드가 생략되었거나 수식 전용 문제입니다.")
+                        st.session_state["generated_python_code"] = ""
                 else:
                     st.error("🚨 선택한 API 키의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
+
+# -------------------------------------------------------------------
+# 해설 출력 & 인터랙티브 슬라이더 그래프 렌더링
+# -------------------------------------------------------------------
+if st.session_state["last_explanation"]:
+    st.divider()
+    st.subheader("📖 AI 미적분 상세 해설")
+    st.markdown(st.session_state["last_explanation"])
+
+    st.divider()
+    st.subheader("📈 미적분 함수 & 핵심 요소 시각화 (인터랙티브 슬라이더)")
+
+    python_code = st.session_state.get("generated_python_code", "")
+
+    if python_code:
+        # 슬라이더 컨트롤러 (x축 범위 및 조작)
+        col_s1, col_s2 = st.columns([1, 1])
+        with col_s1:
+            x_limit = st.slider("🔍 x축 탐색 범위 조정 (확대 / 축소)", min_value=1.0, max_value=20.0, value=5.0, step=0.5)
+        with col_s2:
+            param_val = st.slider("🎛️ 정적분/접점 변수 슬라이더 (t)", min_value=-5.0, max_value=5.0, value=1.0, step=0.2)
+
+        try:
+            plt.close("all")
+            plt.style.use('dark_background')
+
+            # OS별 한글 폰트 설정 (깨짐 방지)
+            sys_name = platform.system()
+            if sys_name == 'Windows':
+                plt.rc('font', family='Malgun Gothic')
+            elif sys_name == 'Darwin':
+                plt.rc('font', family='AppleGothic')
+            else:
+                plt.rc('font', family='NanumGothic')
+            plt.rcParams['axes.unicode_minus'] = False
+
+            # 실행 스코프 설정 (슬라이더 변수 전달)
+            local_scope = {
+                "np": np, 
+                "plt": plt, 
+                "x_limit": x_limit,
+                "t": param_val,
+                "a": param_val
+            }
+            exec(python_code, local_scope)
+
+            # 그래프 다크 스타일 커스텀
+            fig = plt.gcf()
+            fig.patch.set_facecolor('#111827')
+
+            for ax in fig.get_axes():
+                ax.set_facecolor('#1e293b')
+                ax.tick_params(colors='white', labelsize=10)
+                ax.xaxis.label.set_color('white')
+                ax.yaxis.label.set_color('white')
+                ax.title.set_color('white')
+                for spine in ax.spines.values():
+                    spine.set_color('#475569')
+
+            st.pyplot(fig, use_container_width=True)
+            plt.close("all")
+
+        except Exception as plot_err:
+            st.warning("그래프 생성 중 오류가 발생했습니다.")
+    else:
+        st.info("이 문제에는 시각화 코드가 생략되었거나 수식 전용 문제입니다.")
 
 # -------------------------------------------------------------------
 # [우측 하단 구석 40px 미니 버튼] 1:1 꼬리질문 AI 튜터
