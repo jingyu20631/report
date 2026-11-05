@@ -6,17 +6,17 @@ from PIL import Image
 import google.generativeai as genai
 import streamlit as st
 
-# 1. 페이지 설정
+# 1. 페이지 기본 설정
 st.set_page_config(
     page_title="AI 미적분 헬퍼 (Dark Edition)",
     page_icon="📐",
     layout="wide"
 )
 
-# 2. 다크 테마 커스텀 CSS (시인성 최우선 반영)
+# 2. 다크 테마 커스텀 CSS (채팅 입력창 글자색 검정 & 배경 흰색 완벽 반영)
 st.markdown("""
 <style>
-    /* 전체 배경 */
+    /* 전체 앱 배경 */
     .stApp {
         background-color: #0b0f19;
         color: #f8fafc;
@@ -87,7 +87,22 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       우측 하단 구석 미니 채팅 버튼 (40px) & 공간 차단 레이아웃
+       [완벽 수정] 채팅 입력창 글자색 검정 & 배경 흰색 (고대비)
+       ----------------------------------------------------------- */
+    div[data-testid="stChatInput"] textarea,
+    div[data-testid="stChatInput"] input {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border: 2px solid #38bdf8 !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stChatInput"] textarea::placeholder,
+    div[data-testid="stChatInput"] input::placeholder {
+        color: #475569 !important;
+    }
+
+    /* -----------------------------------------------------------
+       우측 하단 구석 미니 채팅 버튼 (40px)
        ----------------------------------------------------------- */
     div[data-testid="stElementContainer"]:has(div[data-testid="stPopover"]) {
         position: fixed !important;
@@ -133,7 +148,7 @@ st.markdown("""
         border: 1px solid #334155 !important;
         border-radius: 12px !important;
         color: #f8fafc !important;
-        width: 320px !important;
+        width: 330px !important;
         max-width: 85vw !important;
     }
     div[data-testid="stChatMessage"] {
@@ -143,12 +158,7 @@ st.markdown("""
         margin-bottom: 6px !important;
     }
     div[data-testid="stChatMessage"] * {
-        color: #f8fafc !important;
-    }
-    div[data-testid="stChatInput"] input {
-        background-color: #1e293b !important;
         color: #ffffff !important;
-        border: 1px solid #38bdf8 !important;
     }
 
     /* 버튼 스타일 */
@@ -180,7 +190,7 @@ if "last_explanation" not in st.session_state:
     st.session_state["last_explanation"] = ""
 
 # -------------------------------------------------------------------
-# 사이드바: API 키 및 모델 설정
+# 사이드바: API 키 및 모델 선택
 # -------------------------------------------------------------------
 st.sidebar.header("🔑 API 및 모델 설정")
 
@@ -271,16 +281,13 @@ if uploaded_image:
 
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
-                   - 다크 배경에 잘 보이도록 색상 규칙을 반드시 지켜줘:
-                     * plt.style.use('dark_background') 적용
-                     * 배경은 어두운 색상(#111827 또는 #0b0f19)
-                     * 주 함수 곡선 f(x) : 밝은 하늘색('#38bdf8') 및 두께 lw=2.5
-                     * 접선 또는 도함수 : 밝은 핑크/레드('#f43f5e')
-                     * 극점/변곡점/특이점 좌표 : 밝은 노란색('#f59e0b') 또는 연두색('#10b981') 점 및 텍스트
-                     * 절대 검정색, 어두운 파란색 선/글자를 쓰지 마.
-                     * 모든 축, 눈금, 라벨, 텍스트는 흰색('white')
-                     * plt.grid(True, color='#334155', alpha=0.5)
-                     * 맨 마지막에 plt.show()를 쓰지 말고 fig, ax 객체가 남아있도록 작성해줘.
+                   - import matplotlib.pyplot as plt 및 import numpy as np 포함
+                   - 다크 배경 시각화를 위해 plt.style.use('dark_background') 적용
+                   - f(x) 곡선: plt.plot(x, y, label='f(x)', color='#38bdf8', linewidth=2.5)
+                   - 극점/특이점: plt.scatter(x0, y0, color='#f59e0b', s=50, zorder=5) 및 plt.annotate()
+                   - 모든 축, 눈금, 글자는 흰색('white')
+                   - plt.grid(True, color='#334155', alpha=0.5)
+                   - 맨 마지막에 plt.show()를 작성하지 마.
                 """
 
                 response_text = None
@@ -303,7 +310,7 @@ if uploaded_image:
                             break
 
                 if response_text:
-                    # 파이썬 코드 추출 후 해설 텍스트에서 코드 블록 완벽 제거 (유저 화면에 코드 노출 안 됨)
+                    # 파이썬 코드 추출 후 해설 텍스트에서 코드 블록 완벽 제거
                     code_match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
                     clean_explanation = re.sub(r"```python.*?```", "", response_text, flags=re.DOTALL).strip()
 
@@ -319,29 +326,31 @@ if uploaded_image:
                     if code_match:
                         python_code = code_match.group(1).strip()
                         
-                        # 다크 모드 그래프 기본 세팅
-                        plt.style.use('dark_background')
-                        fig, ax = plt.subplots(figsize=(9, 5.5))
-                        
-                        fig.patch.set_facecolor('#111827')
-                        ax.set_facecolor('#1e293b')
-                        ax.tick_params(colors='white', labelsize=10)
-                        for spine in ax.spines.values():
-                            spine.set_color('#475569')
-
-                        local_scope = {"np": np, "plt": plt, "fig": fig, "ax": ax}
-
                         try:
+                            # 캔버스 초기화
+                            plt.close("all")
+                            plt.style.use('dark_background')
+                            
+                            local_scope = {"np": np, "plt": plt}
                             exec(python_code, local_scope)
+                            
+                            # 활성화된 Figure를 가져와 다크 테마 커스텀 입히기
+                            fig = plt.gcf()
+                            fig.patch.set_facecolor('#111827')
+                            
+                            for ax in fig.get_axes():
+                                ax.set_facecolor('#1e293b')
+                                ax.tick_params(colors='white', labelsize=10)
+                                ax.xaxis.label.set_color('white')
+                                ax.yaxis.label.set_color('white')
+                                ax.title.set_color('white')
+                                for spine in ax.spines.values():
+                                    spine.set_color('#475569')
+
                             st.pyplot(fig, use_container_width=True)
                             plt.close("all")
                         except Exception as plot_err:
-                            st.warning("그래프 시각화 처리 중 문제가 발생하여 선명 모드로 재출력합니다.")
-                            try:
-                                st.pyplot(plt.gcf(), use_container_width=True)
-                                plt.close("all")
-                            except Exception:
-                                st.info("그래프를 표현할 수 없는 수식 전용 문제입니다.")
+                            st.warning(f"그래프 렌더링 중 오류가 발생했습니다: {plot_err}")
                     else:
                         st.info("이 문제에는 시각화 코드가 생략되었거나 수식 전용 문제입니다.")
                 else:
