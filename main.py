@@ -6,60 +6,56 @@ from PIL import Image
 import google.generativeai as genai
 import streamlit as st
 
-# 1. 페이지 설정 및 다크 테마 CSS 적용 (가독성 개선)
+# 1. 페이지 설정
 st.set_page_config(
     page_title="AI 미적분 헬퍼 (Dark Edition)",
     page_icon="📐",
     layout="wide"
 )
 
+# 2. 강력한 다크 테마 커스텀 CSS (가독성 & 색상 대비 완벽 적용)
 st.markdown("""
 <style>
-    /* 전체 앱 배경 */
+    /* 전체 배경 */
     .stApp {
-        background-color: #090a0f;
+        background-color: #0b0f19;
         color: #f8fafc;
     }
     header, footer {
-        background-color: #090a0f !important;
+        background-color: #0b0f19 !important;
     }
     
-    /* 기본 텍스트 색상 */
-    h1, h2, h3, h4, h5, h6, p, label {
+    /* 기본 글자색 고정 */
+    h1, h2, h3, h4, h5, h6, p, label, span {
         color: #f8fafc !important;
     }
 
-    /* 사이드바 스타일링 */
+    /* 사이드바 */
     section[data-testid="stSidebar"] {
-        background-color: #11131f !important;
+        background-color: #111827 !important;
         border-right: 1px solid #1e293b;
     }
 
     /* -----------------------------------------------------------
-       [1] AI 드롭다운 및 입력 필드 가독성 수정 (흰색 글씨 겹침 해결)
+       [1] 드롭다운(Selectbox) 및 입력창 가독성 최적화
        ----------------------------------------------------------- */
-    /* Selectbox 메인 입력창 */
     div[data-baseweb="select"] > div {
         background-color: #1e293b !important;
         color: #ffffff !important;
-        border: 1px solid #334155 !important;
+        border: 1px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
-    /* Selectbox 드롭다운 팝업 목록 전체 */
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
         background-color: #1e293b !important;
     }
-    /* Selectbox 팝업 내 개별 옵션 항목 */
     li[role="option"] {
         background-color: #1e293b !important;
         color: #ffffff !important;
     }
-    /* Selectbox 호버 및 선택 시 배경/글자색 */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
         background-color: #38bdf8 !important;
         color: #0f172a !important;
     }
-    /* Text Input 입력 영역 */
     input[type="text"], input[type="password"] {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -68,36 +64,79 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       [2] 파일 업로드 및 카메라 입력 박스 색 대비 강화
+       [2] 파일 업로드 및 카메라 입력창 색상 대비 강화
        ----------------------------------------------------------- */
-    /* 업로드 드롭존 구역 */
     section[data-testid="stFileUploadDropzone"] {
-        background-color: #1e293b !important;
+        background-color: #1e2238 !important;
         border: 2px dashed #38bdf8 !important;
         border-radius: 12px !important;
-        padding: 20px !important;
+        padding: 24px !important;
     }
     section[data-testid="stFileUploadDropzone"] * {
-        color: #f1f5f9 !important;
+        color: #f8fafc !important;
     }
-    /* 업로드 버튼 내부 */
     section[data-testid="stFileUploadDropzone"] button {
         background-color: #0f172a !important;
         color: #38bdf8 !important;
         border: 1px solid #38bdf8 !important;
+        border-radius: 6px !important;
     }
 
-    /* 라디오 버튼 카드 형태 대비 강조 */
+    /* 라디오 버튼 박스 */
     div[data-testid="stRadio"] > div {
-        background-color: #1e293b;
-        padding: 10px;
+        background-color: #1e2238;
+        padding: 12px;
         border-radius: 10px;
         border: 1px solid #334155;
     }
 
     /* -----------------------------------------------------------
-       [3] 기본 버튼 및 플로팅 말풍선 버튼 스타일링
+       [3] 오른쪽 아래 미니 플로팅 채팅 버튼 & 채팅 창 스타일
        ----------------------------------------------------------- */
+    /* 우측 하단 소형 채팅 버튼 */
+    div[data-testid="stPopover"] {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 999999;
+    }
+    div[data-testid="stPopover"] > button {
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
+        color: #0f172a !important;
+        font-size: 18px !important;
+        box-shadow: 0px 4px 14px rgba(56, 189, 248, 0.4);
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    /* 팝업 채팅 내부 다크 스타일링 */
+    div[data-testid="stPopoverBody"] {
+        background-color: #111827 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        color: #f8fafc !important;
+    }
+    div[data-testid="stChatMessage"] {
+        background-color: #1e293b !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 8px !important;
+    }
+    div[data-testid="stChatMessage"] * {
+        color: #f8fafc !important;
+    }
+    /* 채팅 입력창 */
+    div[data-testid="stChatInput"] input {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: 1px solid #38bdf8 !important;
+    }
+
+    /* 일반 버튼 */
     .stButton>button {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         color: #38bdf8 !important;
@@ -109,24 +148,6 @@ st.markdown("""
         background: #38bdf8;
         color: #0f172a !important;
     }
-
-    /* 우측 하단 플로팅 말풍선 (Chat Popover) */
-    div[data-testid="stPopover"] {
-        position: fixed;
-        bottom: 35px;
-        right: 35px;
-        z-index: 999999;
-    }
-    div[data-testid="stPopover"] > button {
-        width: 60px;
-        height: 60px;
-        border-radius: 50% !important;
-        background-color: #38bdf8 !important;
-        color: #0f172a !important;
-        font-size: 24px;
-        box-shadow: 0px 4px 20px rgba(56, 189, 248, 0.5);
-        border: none !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -134,7 +155,7 @@ st.title("📐 AI 미적분 풀이 & 인터랙티브 그래프 헬퍼")
 st.caption("사진을 업로드하면 AI가 분석한 풀이와 함께 조작 가능한 인터랙티브 그래프를 제공합니다.")
 
 # -------------------------------------------------------------------
-# 세션 상태(Session State) 관리
+# 세션 상태(Session State)
 # -------------------------------------------------------------------
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
@@ -144,7 +165,7 @@ if "last_explanation" not in st.session_state:
     st.session_state["last_explanation"] = ""
 
 # -------------------------------------------------------------------
-# 사이드바: API 키 및 모델 설정
+# 사이드바: API 키 및 모델 선택
 # -------------------------------------------------------------------
 st.sidebar.header("🔑 API 및 모델 설정")
 
@@ -182,16 +203,16 @@ if valid_models:
     selected_model = st.sidebar.selectbox("사용할 AI 모델", valid_models, index=0)
 else:
     selected_model = "gemini-2.0-flash"
-    st.sidebar.info("💡 API 키를 입력하면 모델 목록이 동적으로 표시됩니다.")
+    st.sidebar.info("💡 API 키를 입력하면 목록이 표시됩니다.")
 
 # -------------------------------------------------------------------
-# 메인 화면: 입력 영역
+# 메인 화면: 문제 업로드 영역
 # -------------------------------------------------------------------
 input_method = st.radio("사진 입력 방식", ["파일 업로드", "카메라 직접 촬영"], horizontal=True)
 
 uploaded_image = None
 if input_method == "파일 업로드":
-    uploaded_file = st.file_uploader("미적분 문제 이미지 (JPG, PNG)", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("미적분 문제 이미지 선택 (JPG, PNG)", type=["jpg", "jpeg", "png"])
     if uploaded_file:
         uploaded_image = Image.open(uploaded_file)
 else:
@@ -200,7 +221,7 @@ else:
         uploaded_image = Image.open(camera_file)
 
 # -------------------------------------------------------------------
-# 문제 풀이 및 시각화 로직
+# 풀이 및 시각화 생성 로직
 # -------------------------------------------------------------------
 if uploaded_image:
     col1, col2 = st.columns([1, 1])
@@ -274,20 +295,20 @@ if uploaded_image:
                         fig, ax = plt.subplots(figsize=(8, 5))
                         
                         plt.style.use('dark_background')
-                        fig.patch.set_facecolor('#090a0f')
-                        ax.set_facecolor('#090a0f')
+                        fig.patch.set_facecolor('#0b0f19')
+                        ax.set_facecolor('#0b0f19')
 
                         local_scope = {"np": np, "plt": plt, "fig": fig, "ax": ax}
 
                         try:
                             exec(python_code, local_scope)
                             
-                            # Matplotlib Figure -> Plotly 인터랙티브 그래프 변환
+                            # Matplotlib -> Plotly 인터랙티브 그래프 변환
                             plotly_fig = go.Figure(fig)
                             plotly_fig.update_layout(
                                 template="plotly_dark",
-                                paper_bgcolor="#090a0f",
-                                plot_bgcolor="#090a0f",
+                                paper_bgcolor="#0b0f19",
+                                plot_bgcolor="#0b0f19",
                                 margin=dict(l=20, r=20, t=30, b=20)
                             )
                             st.plotly_chart(plotly_fig, use_container_width=True)
@@ -302,19 +323,19 @@ if uploaded_image:
                     else:
                         st.info("이 문제에는 시각화 코드가 생략되었거나 수식 전용 문제입니다.")
                 else:
-                    st.error("🚨 사용 가능한 Gemini 모델의 요청 범위를 초과했습니다. 잠시 후 시도하거나 새 API 키를 입력해 주세요.")
+                    st.error("🚨 선택한 API 키의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
 
 # -------------------------------------------------------------------
-# [우측 하단] 1:1 꼬리질문 AI 튜터 챗봇 Window
+# [우측 하단 소형 버튼] 1:1 꼬리질문 AI 튜터 챗봇
 # -------------------------------------------------------------------
-with st.popover("💬", help="AI 튜터에게 1:1 꼬리질문 하기"):
-    st.markdown("### 💬 AI 튜터 1:1 질의응답")
-    st.caption("해설 내용 중 이해가 안 되는 수식이나 개념을 자유롭게 질문하세요!")
+with st.popover("💬", help="1:1 AI 튜터 꼬리질문"):
+    st.markdown("#### 💬 AI 튜터 1:1 질의응답")
+    st.caption("해설 중 이해가 안 가는 수식을 질문해 보세요.")
 
-    chat_container = st.container(height=350)
+    chat_container = st.container(height=300)
     with chat_container:
         if not st.session_state["chat_history"]:
-            st.info("👋 안녕하세요! 풀이 과정 중 궁금한 점을 물어보세요.")
+            st.info("👋 풀이 과정에서 궁금한 점을 편하게 질문해 주세요!")
         for msg in st.session_state["chat_history"]:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
@@ -323,27 +344,27 @@ with st.popover("💬", help="AI 튜터에게 1:1 꼬리질문 하기"):
     if user_query:
         st.session_state["chat_history"].append({"role": "user", "content": user_query})
         
-        active_key = st.session_state.get("api_key", "").strip()
-        if not active_key:
-            st.session_state["chat_history"].append({"role": "assistant", "content": "⚠️ 먼저 사이드바에 API Key를 입력해 주세요!"})
+        active_api_key = st.session_state.get("api_key", "").strip()
+        if not active_api_key:
+            st.session_state["chat_history"].append({"role": "assistant", "content": "⚠️ 사이드바에 API Key를 먼저 입력해 주세요!"})
         else:
-            genai.configure(api_key=active_key)
-            tutor_model = genai.GenerativeModel(selected_model or "gemini-2.0-flash")
-            
-            explanation_context = st.session_state.get("last_explanation", "아직 해설된 문제 없음")
-            
-            tutor_prompt = f"""
-            너는 친절한 고등학교 미적분 AI 튜터야.
-            학생이 방금 해설을 읽고 다음과 같이 질문했어. 학생 눈높이에 맞춰 친절하게 설명해줘.
-
-            [문제 해설 맥락]
-            {explanation_context}
-
-            [학생 질문]
-            {user_query}
-            """
-            
             try:
+                genai.configure(api_key=active_api_key)
+                tutor_model = genai.GenerativeModel(selected_model or "gemini-2.0-flash")
+                
+                explanation_context = st.session_state.get("last_explanation", "아직 해설된 문제 없음")
+                
+                tutor_prompt = f"""
+                너는 친절한 고등학교 미적분 AI 튜터야.
+                학생이 방금 해설을 읽고 다음과 같이 질문했어. 학생 눈높이에 맞춰 친절하게 설명해줘.
+
+                [문제 해설 맥락]
+                {explanation_context}
+
+                [학생 질문]
+                {user_query}
+                """
+                
                 res = tutor_model.generate_content(tutor_prompt)
                 st.session_state["chat_history"].append({"role": "assistant", "content": res.text})
             except Exception as e:
