@@ -2,6 +2,7 @@ import re
 import time
 import platform
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import numpy as np
 from PIL import Image
 import google.generativeai as genai
@@ -116,9 +117,7 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* -----------------------------------------------------------
-       [우측 하단 구석 미니 채팅 버튼 (40px) & 라이트 채팅창]
-       ----------------------------------------------------------- */
+    /* 우측 하단 구석 미니 채팅 버튼 (40px) & 라이트 채팅창 */
     div[data-testid="stElementContainer"]:has(div[data-testid="stPopover"]) {
         position: fixed !important;
         bottom: 20px !important;
@@ -204,8 +203,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📐 AI 미적분 풀이 & 인터랙티브 시각화 헬퍼")
-st.caption("사진을 업로드하면 AI가 단계별 풀이와 함께 한국어로 표시된 맞춤형 인터랙티브 그래프를 생성합니다.")
+st.title("📐 AI 미적분 풀이 & 시각화 헬퍼")
+st.caption("사진을 업로드하면 AI가 단계별 풀이와 함께 한국어로 표시된 맞춤형 그래프를 생성합니다.")
 
 # -------------------------------------------------------------------
 # 세션 상태(Session State)
@@ -288,7 +287,7 @@ if uploaded_image:
     with col2:
         st.subheader("🚀 문제 분석 및 그래프 생성")
         st.write(f"가동 모델: **`{selected_model}`**")
-        solve_button = st.button("✨ AI 풀이 & 인터랙티브 그래프 생성", type="primary", use_container_width=True)
+        solve_button = st.button("✨ AI 풀이 & 그래프 시각화", type="primary", use_container_width=True)
 
     if solve_button:
         active_api_key = st.session_state.get("api_key", "").strip()
@@ -312,11 +311,8 @@ if uploaded_image:
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
                    - import matplotlib.pyplot as plt 및 import numpy as np 포함
-                   - 모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.
-                   - 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표기:
-                     * plt.scatter()로 주요 포인트를 지점 표기
-                     * plt.annotate()로 좌표 및 한국어 라벨 달아주기
-                   - x축 범위를 생성할 때 `x_limit` 변수를 사용해줘 (예: `x = np.linspace(-x_limit, x_limit, 400)`)
+                   - 모든 축, 라벨, 범례, 텍스트 설명은 명확한 '한국어'로 작성해줘 (예: '함수 f(x)', '접선', '극댓값', '변곡점', '정적분 영역').
+                   - 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, 절편, 접점 등)을 plt.scatter()와 plt.annotate()로 표시해줘.
                    - 라이트 테마 색상 가이드:
                      * plt.style.use('default') 적용
                      * 배경: 깔끔한 흰색 (#ffffff)
@@ -360,7 +356,7 @@ if uploaded_image:
                     st.error("🚨 선택한 API 키의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
 
 # -------------------------------------------------------------------
-# 해설 출력 & 라이트 모드 그래프 렌더링
+# 해설 출력 & 한글 깨짐 방지 다이나믹 폰트 그래프 렌더링
 # -------------------------------------------------------------------
 if st.session_state["last_explanation"]:
     st.divider()
@@ -368,37 +364,46 @@ if st.session_state["last_explanation"]:
     st.markdown(st.session_state["last_explanation"])
 
     st.divider()
-    st.subheader("📈 미적분 함수 & 핵심 요소 시각화 (인터랙티브 슬라이더)")
+    st.subheader("📈 미적분 함수 & 핵심 요소 시각화")
 
     python_code = st.session_state.get("generated_python_code", "")
 
     if python_code:
-        col_s1, col_s2 = st.columns([1, 1])
-        with col_s1:
-            x_limit = st.slider("🔍 x축 탐색 범위 조정 (확대 / 축소)", min_value=1.0, max_value=20.0, value=5.0, step=0.5)
-        with col_s2:
-            param_val = st.slider("🎛️ 정적분/접점 변수 슬라이더 (t)", min_value=-5.0, max_value=5.0, value=1.0, step=0.2)
-
         try:
             plt.close("all")
             plt.style.use('default')
 
-            sys_name = platform.system()
-            if sys_name == 'Windows':
-                plt.rc('font', family='Malgun Gothic')
-            elif sys_name == 'Darwin':
-                plt.rc('font', family='AppleGothic')
+            # -----------------------------------------------------------
+            # [한글 폰트 깨짐 완벽 방지] OS 및 서버 환경 자동 감지 로직
+            # -----------------------------------------------------------
+            system_fonts = [f.name for f in fm.fontManager.ttflist]
+            korean_font_candidates = [
+                'NanumGothic', 'Malgun Gothic', 'AppleGothic', 
+                'Noto Sans CJK KR', 'NanumBarunGothic', 'Gothic'
+            ]
+            
+            selected_font = None
+            for font in korean_font_candidates:
+                if font in system_fonts:
+                    selected_font = font
+                    break
+            
+            if selected_font:
+                plt.rc('font', family=selected_font)
             else:
-                plt.rc('font', family='NanumGothic')
+                # 폰트명이 리스트에 직접 없는 경우 OS 기본 경로 추적
+                sys_name = platform.system()
+                if sys_name == 'Windows':
+                    plt.rc('font', family='Malgun Gothic')
+                elif sys_name == 'Darwin':
+                    plt.rc('font', family='AppleGothic')
+                else:
+                    plt.rc('font', family='NanumGothic')
+
+            # 마이너스(-) 부호가 깨져 사각형(□)으로 표시되는 현상 방지
             plt.rcParams['axes.unicode_minus'] = False
 
-            local_scope = {
-                "np": np, 
-                "plt": plt, 
-                "x_limit": x_limit,
-                "t": param_val,
-                "a": param_val
-            }
+            local_scope = {"np": np, "plt": plt}
             exec(python_code, local_scope)
 
             fig = plt.gcf()
@@ -417,7 +422,7 @@ if st.session_state["last_explanation"]:
             plt.close("all")
 
         except Exception as plot_err:
-            st.warning("그래프 생성 중 오류가 발생했습니다.")
+            st.warning("그래프 시각화 처리 중 오류가 발생했습니다.")
     else:
         st.info("이 문제에는 시각화 코드가 생략되었거나 수식 전용 문제입니다.")
 
