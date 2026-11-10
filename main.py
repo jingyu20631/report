@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 다크 테마 커스텀 CSS (흰색 배경 시 검은색 글자 자동 전환 로직 추가)
+# 2. 다크 테마 커스텀 CSS (세부 글자색 및 고대비 가독성 보장)
 st.markdown("""
 <style>
     /* 전체 앱 배경 */
@@ -38,26 +38,19 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       [완벽 반영] 흰색 배경 요소 내의 텍스트 자동 검은색 전환 규칙
+       [1] "API 키를 입력하면 목록이 표시됩니다." 안내 박스 (밝은 배경 & 검은색 글자)
        ----------------------------------------------------------- */
-    /* 흰색 또는 밝은 배경색을 가진 모든 요소 및 그 하위 텍스트 */
-    [style*="background-color: #ffffff"],
-    [style*="background-color: white"],
-    [style*="background-color: rgb(255, 255, 255)"],
-    [style*="background: #ffffff"],
-    [style*="background: white"] {
-        color: #000000 !important;
+    div[data-testid="stSidebar"] div[data-testid="stAlert"] {
+        background-color: #e0f2fe !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 8px !important;
     }
-    
-    [style*="background-color: #ffffff"] *,
-    [style*="background-color: white"] *,
-    [style*="background-color: rgb(255, 255, 255)"] *,
-    [style*="background: #ffffff"] *,
-    [style*="background: white"] * {
+    div[data-testid="stSidebar"] div[data-testid="stAlert"] * {
         color: #000000 !important;
+        font-weight: 600 !important;
     }
 
-    /* 드롭다운 메뉴 선택창 및 입력 필드 */
+    /* Selectbox 및 비밀번호 입력창 */
     div[data-baseweb="select"] > div {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -71,12 +64,10 @@ st.markdown("""
         background-color: #1e293b !important;
         color: #ffffff !important;
     }
-    /* 드롭다운 옵션 호버/선택 시 (밝은 배경 전환 시 글자색 검은색) */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
         background-color: #38bdf8 !important;
         color: #000000 !important;
     }
-    
     input[type="text"], input[type="password"] {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -85,22 +76,27 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       파일 업로드 구역 색상 대비
+       [2] 파일 업로드 박스, 200MB/JPG/PNG 안내문구, 파일 첨부 버튼 (검정 글자 & 밝은 배경)
        ----------------------------------------------------------- */
     section[data-testid="stFileUploadDropzone"] {
-        background-color: #1e2238 !important;
-        border: 2px dashed #38bdf8 !important;
+        background-color: #f1f5f9 !important;
+        border: 2px dashed #0284c7 !important;
         border-radius: 12px !important;
         padding: 20px !important;
     }
     section[data-testid="stFileUploadDropzone"] * {
-        color: #f8fafc !important;
+        color: #000000 !important;
+        font-weight: 600 !important;
     }
     section[data-testid="stFileUploadDropzone"] button {
-        background-color: #0f172a !important;
-        color: #38bdf8 !important;
-        border: 1px solid #38bdf8 !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #0f172a !important;
         border-radius: 6px !important;
+        font-weight: bold !important;
+    }
+    section[data-testid="stFileUploadDropzone"] button * {
+        color: #000000 !important;
     }
 
     /* 라디오 버튼 박스 */
@@ -112,8 +108,39 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       [채팅 입력창] 흰색 배경 & 검은색 글자
+       [3] 채팅창 내부 모든 글자 선명 가독성 보장 (검정 텍스트 챗버블)
        ----------------------------------------------------------- */
+    div[data-testid="stPopoverBody"] {
+        background-color: #0f172a !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 12px !important;
+        color: #ffffff !important;
+        width: 340px !important;
+        max-width: 85vw !important;
+    }
+    div[data-testid="stPopoverBody"] h1,
+    div[data-testid="stPopoverBody"] h2,
+    div[data-testid="stPopoverBody"] h3,
+    div[data-testid="stPopoverBody"] h4,
+    div[data-testid="stPopoverBody"] p,
+    div[data-testid="stPopoverBody"] span {
+        color: #ffffff !important;
+    }
+    
+    /* 대화 메시지 박스 */
+    div[data-testid="stChatMessage"] {
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px !important;
+    }
+    div[data-testid="stChatMessage"] * {
+        color: #000000 !important;
+        font-weight: 500 !important;
+    }
+
+    /* 채팅 입력창 */
     div[data-testid="stChatInput"] textarea,
     div[data-testid="stChatInput"] input {
         background-color: #ffffff !important;
@@ -168,25 +195,7 @@ st.markdown("""
         justify-content: center !important;
     }
 
-    div[data-testid="stPopoverBody"] {
-        background-color: #111827 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-        color: #f8fafc !important;
-        width: 330px !important;
-        max-width: 85vw !important;
-    }
-    div[data-testid="stChatMessage"] {
-        background-color: #1e293b !important;
-        border-radius: 8px !important;
-        padding: 8px 10px !important;
-        margin-bottom: 6px !important;
-    }
-    div[data-testid="stChatMessage"] * {
-        color: #ffffff !important;
-    }
-
-    /* 버튼 스타일 */
+    /* 메인 버튼 스타일 */
     .stButton>button {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         color: #38bdf8 !important;
@@ -309,8 +318,8 @@ if uploaded_image:
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
                    - import matplotlib.pyplot as plt 및 import numpy as np 포함
-                   - **모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.**
-                   - **문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표기**:
+                   - 모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.
+                   - 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표기:
                      * plt.scatter()로 주요 포인트를 지점 표기
                      * plt.annotate()로 좌표 및 한국어 라벨 달아주기
                    - x축 범위를 생성할 때 `x_limit` 변수를 사용해줘 (예: `x = np.linspace(-x_limit, x_limit, 400)`)
