@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 다크 테마 커스텀 CSS (가독성 & UI 디자인 완벽 반영)
+# 2. 다크 테마 커스텀 CSS (흰색 배경 시 검은색 글자 자동 전환 로직 추가)
 st.markdown("""
 <style>
     /* 전체 앱 배경 */
@@ -37,7 +37,27 @@ st.markdown("""
         border-right: 1px solid #1e293b;
     }
 
-    /* Selectbox 및 입력창 */
+    /* -----------------------------------------------------------
+       [완벽 반영] 흰색 배경 요소 내의 텍스트 자동 검은색 전환 규칙
+       ----------------------------------------------------------- */
+    /* 흰색 또는 밝은 배경색을 가진 모든 요소 및 그 하위 텍스트 */
+    [style*="background-color: #ffffff"],
+    [style*="background-color: white"],
+    [style*="background-color: rgb(255, 255, 255)"],
+    [style*="background: #ffffff"],
+    [style*="background: white"] {
+        color: #000000 !important;
+    }
+    
+    [style*="background-color: #ffffff"] *,
+    [style*="background-color: white"] *,
+    [style*="background-color: rgb(255, 255, 255)"] *,
+    [style*="background: #ffffff"] *,
+    [style*="background: white"] * {
+        color: #000000 !important;
+    }
+
+    /* 드롭다운 메뉴 선택창 및 입력 필드 */
     div[data-baseweb="select"] > div {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -51,10 +71,12 @@ st.markdown("""
         background-color: #1e293b !important;
         color: #ffffff !important;
     }
+    /* 드롭다운 옵션 호버/선택 시 (밝은 배경 전환 시 글자색 검은색) */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
         background-color: #38bdf8 !important;
-        color: #0f172a !important;
+        color: #000000 !important;
     }
+    
     input[type="text"], input[type="password"] {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -62,7 +84,9 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* 파일 업로드 구역 대비 강조 */
+    /* -----------------------------------------------------------
+       파일 업로드 구역 색상 대비
+       ----------------------------------------------------------- */
     section[data-testid="stFileUploadDropzone"] {
         background-color: #1e2238 !important;
         border: 2px dashed #38bdf8 !important;
@@ -88,7 +112,7 @@ st.markdown("""
     }
 
     /* -----------------------------------------------------------
-       [채팅 입력창] 글자색 검정 & 배경 흰색 (고대비)
+       [채팅 입력창] 흰색 배경 & 검은색 글자
        ----------------------------------------------------------- */
     div[data-testid="stChatInput"] textarea,
     div[data-testid="stChatInput"] input {
@@ -285,13 +309,11 @@ if uploaded_image:
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
                    - import matplotlib.pyplot as plt 및 import numpy as np 포함
-                   - **[필수] 모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.**
-                     (예: '함수 f(x)', '접선 y=2x+1', '극댓값 (1, 4)', '극솟값', '변곡점', '정적분 영역 S', 'x축', 'y축')
-                   - **[필수] 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표시**:
-                     * plt.scatter()로 주요 포인트를 정확히 지점 표기
+                   - **모든 라벨, 텍스트, 범례, 타이틀은 '한국어'로 작성해줘.**
+                   - **문제 해결에 필요한 주요 핵심 점(극점, 변곡점, x/y절편, 접점 등)을 직접 판단하여 표기**:
+                     * plt.scatter()로 주요 포인트를 지점 표기
                      * plt.annotate()로 좌표 및 한국어 라벨 달아주기
-                   - **[슬라이더 연동]** x축 범위를 생성할 때 `x_limit` 변수를 사용해줘:
-                     (예: `x = np.linspace(-x_limit, x_limit, 400)`)
+                   - x축 범위를 생성할 때 `x_limit` 변수를 사용해줘 (예: `x = np.linspace(-x_limit, x_limit, 400)`)
                    - 색상 가이드:
                      * 주 함수 f(x): 하늘색 ('#38bdf8', lw=2.5)
                      * 도함수/접선: 핑크색 ('#f43f5e', lw=2)
@@ -321,7 +343,6 @@ if uploaded_image:
                             break
 
                 if response_text:
-                    # 코드 추출 및 저장
                     code_match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
                     clean_explanation = re.sub(r"```python.*?```", "", response_text, flags=re.DOTALL).strip()
 
@@ -347,7 +368,6 @@ if st.session_state["last_explanation"]:
     python_code = st.session_state.get("generated_python_code", "")
 
     if python_code:
-        # 슬라이더 컨트롤러 (x축 범위 및 조작)
         col_s1, col_s2 = st.columns([1, 1])
         with col_s1:
             x_limit = st.slider("🔍 x축 탐색 범위 조정 (확대 / 축소)", min_value=1.0, max_value=20.0, value=5.0, step=0.5)
@@ -358,7 +378,6 @@ if st.session_state["last_explanation"]:
             plt.close("all")
             plt.style.use('dark_background')
 
-            # OS별 한글 폰트 설정 (깨짐 방지)
             sys_name = platform.system()
             if sys_name == 'Windows':
                 plt.rc('font', family='Malgun Gothic')
@@ -368,7 +387,6 @@ if st.session_state["last_explanation"]:
                 plt.rc('font', family='NanumGothic')
             plt.rcParams['axes.unicode_minus'] = False
 
-            # 실행 스코프 설정 (슬라이더 변수 전달)
             local_scope = {
                 "np": np, 
                 "plt": plt, 
@@ -378,7 +396,6 @@ if st.session_state["last_explanation"]:
             }
             exec(python_code, local_scope)
 
-            # 그래프 다크 스타일 커스텀
             fig = plt.gcf()
             fig.patch.set_facecolor('#111827')
 
