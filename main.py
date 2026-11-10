@@ -1,35 +1,13 @@
-import os
-import platform
 import re
 import time
-import urllib.request
 from PIL import Image
 import google.generativeai as genai
-import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
 # -------------------------------------------------------------------
-# [한글 폰트 자동 다운로드 & Matplotlib 등록 로직]
-# -------------------------------------------------------------------
-FONT_PATH = "NanumGothic.ttf"
-if not os.path.exists(FONT_PATH):
-    try:
-        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
-        urllib.request.urlretrieve(font_url, FONT_PATH)
-    except Exception:
-        pass
-
-if os.path.exists(FONT_PATH):
-    fm.fontManager.addfont(FONT_PATH)
-    font_prop = fm.FontProperties(fname=FONT_PATH)
-    plt.rc("font", family=font_prop.get_name())
-
-plt.rcParams["axes.unicode_minus"] = False
-
-# -------------------------------------------------------------------
-# 1. 페이지 기본 설정 및 커스텀 CSS
+# 1. 페이지 기본 설정 및 라이트 테마 커스텀 CSS
 # -------------------------------------------------------------------
 st.set_page_config(
     page_title="AI 미적분 헬퍼 (Light Edition)",
@@ -221,7 +199,7 @@ st.markdown(
 )
 
 st.title("📐 AI 미적분 풀이 & 시각화 헬퍼")
-st.caption("사진을 업로드하면 AI가 단계별 풀이와 함께 한국어로 표시된 맞춤형 그래프를 생성합니다.")
+st.caption("사진을 업로드하면 AI가 단계별 풀이와 함께 깔끔한 영어 시각화 그래프를 생성합니다.")
 
 # -------------------------------------------------------------------
 # 세션 상태(Session State)
@@ -330,14 +308,15 @@ if uploaded_image:
                 [답변 양식]
                 1. 📌 **문제 요약 및 핵심 조건**: 정리
                 2. 💡 **출제 의도 및 필수 개념**: 핵심 공식 (LaTeX 표기)
-                3. 📝 **단계별 상세 풀이**: Step 1, Step 2 순으로 설명
+                3. 📝 **단계별 상세 풀이**: Step 1, Step 2 순으로 설명 (한국어로 상세히 해설)
                 4. ✅ **최종 정답**: 강조 표기
 
                 5. 📊 **Matplotlib 그래프 작성 파이썬 코드를 맨 마지막에 작성해줘**:
                    - 코드 블록은 반드시 ```python 으로 시작하고 ``` 로 끝내야 해.
                    - import matplotlib.pyplot as plt 및 import numpy as np 포함
-                   - 모든 축, 라벨, 범례, 텍스트 설명은 반드시 '한국어'로 작성해줘 (예: '함수 f(x)', '접선 y=x', '정적분 영역 S', '극댓값').
-                   - 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, 절편, 접점 등)을 plt.scatter()와 plt.annotate()로 표시해줘.
+                   - **[중요] 모든 축, 라벨, 범례, 텍스트 설명은 폰트 깨짐 방지를 위해 반드시 '영어(English)' 및 수식으로 작성해줘**
+                     (예: 'f(x)', 'Tangent y = x', 'Area S', 'Local Max (8, 8)', 'Local Min', 'Inflection point', 'x-axis', 'y-axis').
+                   - 문제 해결에 필요한 주요 핵심 점(극점, 변곡점, 절편, 접점 등)을 plt.scatter()와 plt.annotate()로 영어로 표기해줘.
                    - 라이트 테마 색상 가이드:
                      * plt.style.use('default') 적용
                      * 배경: 깔끔한 흰색 (#ffffff)
@@ -391,7 +370,7 @@ if uploaded_image:
                     )
 
 # -------------------------------------------------------------------
-# 해설 출력 & 한글 폰트 적용 그래프 렌더링
+# 해설 출력 & 영어 시각화 그래프 렌더링
 # -------------------------------------------------------------------
 if st.session_state["last_explanation"]:
     st.divider()
@@ -407,11 +386,6 @@ if st.session_state["last_explanation"]:
         try:
             plt.close("all")
             plt.style.use("default")
-
-            if os.path.exists(FONT_PATH):
-                font_prop = fm.FontProperties(fname=FONT_PATH)
-                plt.rc("font", family=font_prop.get_name())
-
             plt.rcParams["axes.unicode_minus"] = False
 
             local_scope = {"np": np, "plt": plt}
@@ -454,7 +428,6 @@ with st.popover("💬", help="1:1 AI 튜터 꼬리질문"):
 
     user_query = st.chat_input("질문을 입력하세요...")
     if user_query:
-        # 1. 사용자 질문을 세션 상태에 즉시 저장
         st.session_state["chat_history"].append(
             {"role": "user", "content": user_query}
         )
@@ -467,7 +440,6 @@ with st.popover("💬", help="1:1 AI 튜터 꼬리질문"):
             )
             st.rerun()
         else:
-            # 2. 질문 입력 즉시 사용자 메시지와 답변 스트리밍을 화면에 실시간 출력
             with chat_container:
                 with st.chat_message("user"):
                     st.write(user_query)
@@ -494,7 +466,6 @@ with st.popover("💬", help="1:1 AI 튜터 꼬리질문"):
                         {user_query}
                         """
 
-                        # Gemini 실시간 토큰 스트리밍 함수
                         def generate_stream():
                             response = tutor_model.generate_content(
                                 tutor_prompt, stream=True
@@ -503,10 +474,8 @@ with st.popover("💬", help="1:1 AI 튜터 꼬리질문"):
                                 if chunk.text:
                                     yield chunk.text
 
-                        # st.write_stream을 사용하여 즉각적으로 타자 치듯 화면 출력
                         full_response = st.write_stream(generate_stream())
                         
-                        # 완성된 답변을 채팅 내역 세션에 기록
                         st.session_state["chat_history"].append(
                             {"role": "assistant", "content": full_response}
                         )
