@@ -9,152 +9,115 @@ import streamlit as st
 
 # 1. 페이지 기본 설정
 st.set_page_config(
-    page_title="AI 미적분 헬퍼 (Dark Edition)",
+    page_title="AI 미적분 헬퍼 (Light Edition)",
     page_icon="📐",
     layout="wide"
 )
 
-# 2. 다크 테마 커스텀 CSS (세부 글자색 및 고대비 가독성 보장)
+# 2. 전면 라이트 모드 커스텀 CSS
 st.markdown("""
 <style>
-    /* 전체 앱 배경 */
+    /* 전체 앱 배경 및 기본 글자색 (화이트 테마) */
     .stApp {
-        background-color: #0b0f19;
-        color: #f8fafc;
+        background-color: #ffffff;
+        color: #0f172a;
     }
     header, footer {
-        background-color: #0b0f19 !important;
+        background-color: #ffffff !important;
     }
     
-    /* 기본 글자색 고정 */
+    /* 기본 헤더 및 텍스트 색상 */
     h1, h2, h3, h4, h5, h6, p, label, span {
-        color: #f8fafc !important;
+        color: #0f172a !important;
     }
 
-    /* 사이드바 */
+    /* 사이드바 라이트 스타일ing */
     section[data-testid="stSidebar"] {
-        background-color: #111827 !important;
-        border-right: 1px solid #1e293b;
+        background-color: #f8fafc !important;
+        border-right: 1px solid #e2e8f0;
     }
 
-    /* -----------------------------------------------------------
-       [1] "API 키를 입력하면 목록이 표시됩니다." 안내 박스 (밝은 배경 & 검은색 글자)
-       ----------------------------------------------------------- */
+    /* 사이드바 알림 박스 */
     div[data-testid="stSidebar"] div[data-testid="stAlert"] {
         background-color: #e0f2fe !important;
-        border: 1px solid #38bdf8 !important;
+        border: 1px solid #0284c7 !important;
         border-radius: 8px !important;
     }
     div[data-testid="stSidebar"] div[data-testid="stAlert"] * {
-        color: #000000 !important;
+        color: #0369a1 !important;
         font-weight: 600 !important;
     }
 
-    /* Selectbox 및 비밀번호 입력창 */
+    /* 드롭다운(Selectbox) 및 비밀번호 입력창 */
     div[data-baseweb="select"] > div {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #38bdf8 !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 8px !important;
     }
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
-        background-color: #1e293b !important;
+        background-color: #ffffff !important;
     }
     li[role="option"] {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
     }
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
-        background-color: #38bdf8 !important;
-        color: #000000 !important;
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
     }
     input[type="text"], input[type="password"] {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #334155 !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 8px !important;
     }
 
-    /* -----------------------------------------------------------
-       [2] 파일 업로드 박스, 200MB/JPG/PNG 안내문구, 파일 첨부 버튼 (검정 글자 & 밝은 배경)
-       ----------------------------------------------------------- */
+    /* 파일 업로드 구역 */
     section[data-testid="stFileUploadDropzone"] {
-        background-color: #f1f5f9 !important;
+        background-color: #f8fafc !important;
         border: 2px dashed #0284c7 !important;
         border-radius: 12px !important;
         padding: 20px !important;
     }
     section[data-testid="stFileUploadDropzone"] * {
-        color: #000000 !important;
+        color: #0f172a !important;
         font-weight: 600 !important;
     }
     section[data-testid="stFileUploadDropzone"] button {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid #0f172a !important;
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border: none !important;
         border-radius: 6px !important;
         font-weight: bold !important;
     }
     section[data-testid="stFileUploadDropzone"] button * {
-        color: #000000 !important;
+        color: #ffffff !important;
     }
 
-    /* 라디오 버튼 박스 */
+    /* 라디오 버튼 선택 상자 */
     div[data-testid="stRadio"] > div {
-        background-color: #1e2238;
+        background-color: #f8fafc;
         padding: 10px;
         border-radius: 10px;
-        border: 1px solid #334155;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* 메인 실행 버튼 */
+    .stButton>button {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        color: #ffffff !important;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background: #0369a1;
+        color: #ffffff !important;
     }
 
     /* -----------------------------------------------------------
-       [3] 채팅창 내부 모든 글자 선명 가독성 보장 (검정 텍스트 챗버블)
-       ----------------------------------------------------------- */
-    div[data-testid="stPopoverBody"] {
-        background-color: #0f172a !important;
-        border: 1px solid #38bdf8 !important;
-        border-radius: 12px !important;
-        color: #ffffff !important;
-        width: 340px !important;
-        max-width: 85vw !important;
-    }
-    div[data-testid="stPopoverBody"] h1,
-    div[data-testid="stPopoverBody"] h2,
-    div[data-testid="stPopoverBody"] h3,
-    div[data-testid="stPopoverBody"] h4,
-    div[data-testid="stPopoverBody"] p,
-    div[data-testid="stPopoverBody"] span {
-        color: #ffffff !important;
-    }
-    
-    /* 대화 메시지 박스 */
-    div[data-testid="stChatMessage"] {
-        background-color: #f8fafc !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 10px !important;
-        padding: 10px 12px !important;
-        margin-bottom: 8px !important;
-    }
-    div[data-testid="stChatMessage"] * {
-        color: #000000 !important;
-        font-weight: 500 !important;
-    }
-
-    /* 채팅 입력창 */
-    div[data-testid="stChatInput"] textarea,
-    div[data-testid="stChatInput"] input {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border: 2px solid #38bdf8 !important;
-        font-weight: bold !important;
-    }
-    div[data-testid="stChatInput"] textarea::placeholder,
-    div[data-testid="stChatInput"] input::placeholder {
-        color: #475569 !important;
-    }
-
-    /* -----------------------------------------------------------
-       우측 하단 구석 미니 채팅 버튼 (40px)
+       [우측 하단 구석 미니 채팅 버튼 (40px) & 라이트 채팅창]
        ----------------------------------------------------------- */
     div[data-testid="stElementContainer"]:has(div[data-testid="stPopover"]) {
         position: fixed !important;
@@ -184,10 +147,10 @@ st.markdown("""
         max-width: 40px !important;
         max-height: 40px !important;
         border-radius: 50% !important;
-        background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
-        color: #0f172a !important;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        color: #ffffff !important;
         font-size: 16px !important;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5) !important;
+        box-shadow: 0px 4px 12px rgba(2, 132, 199, 0.3) !important;
         border: none !important;
         padding: 0 !important;
         display: flex !important;
@@ -195,17 +158,48 @@ st.markdown("""
         justify-content: center !important;
     }
 
-    /* 메인 버튼 스타일 */
-    .stButton>button {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        color: #38bdf8 !important;
-        border: 1px solid #38bdf8;
-        border-radius: 8px;
-        font-weight: bold;
-    }
-    .stButton>button:hover {
-        background: #38bdf8;
+    div[data-testid="stPopoverBody"] {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
         color: #0f172a !important;
+        width: 340px !important;
+        max-width: 85vw !important;
+        box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+    div[data-testid="stPopoverBody"] h1,
+    div[data-testid="stPopoverBody"] h2,
+    div[data-testid="stPopoverBody"] h3,
+    div[data-testid="stPopoverBody"] h4,
+    div[data-testid="stPopoverBody"] p,
+    div[data-testid="stPopoverBody"] span {
+        color: #0f172a !important;
+    }
+
+    /* 채팅 버블 메시지 */
+    div[data-testid="stChatMessage"] {
+        background-color: #f1f5f9 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px !important;
+    }
+    div[data-testid="stChatMessage"] * {
+        color: #0f172a !important;
+        font-weight: 500 !important;
+    }
+
+    /* 채팅 입력창 */
+    div[data-testid="stChatInput"] textarea,
+    div[data-testid="stChatInput"] input {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 2px solid #0284c7 !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stChatInput"] textarea::placeholder,
+    div[data-testid="stChatInput"] input::placeholder {
+        color: #64748b !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -323,12 +317,14 @@ if uploaded_image:
                      * plt.scatter()로 주요 포인트를 지점 표기
                      * plt.annotate()로 좌표 및 한국어 라벨 달아주기
                    - x축 범위를 생성할 때 `x_limit` 변수를 사용해줘 (예: `x = np.linspace(-x_limit, x_limit, 400)`)
-                   - 색상 가이드:
-                     * 주 함수 f(x): 하늘색 ('#38bdf8', lw=2.5)
-                     * 도함수/접선: 핑크색 ('#f43f5e', lw=2)
-                     * 핵심 좌표점: 노란색/연두색 ('#f59e0b', '#10b981', s=60)
-                     * 모든 축 및 눈금: 흰색 ('white')
-                     * plt.grid(True, color='#334155', alpha=0.5)
+                   - 라이트 테마 색상 가이드:
+                     * plt.style.use('default') 적용
+                     * 배경: 깔끔한 흰색 (#ffffff)
+                     * 주 함수 f(x): 또렷한 선명 파란색 ('#0284c7', lw=2.5)
+                     * 도함수/접선: 붉은색 ('#e11d48', lw=2)
+                     * 핵심 좌표점: 주황/녹색 ('#d97706', '#059669', s=60)
+                     * 모든 축 및 눈금, 글자: 짙은 네이비/검은색 ('#0f172a')
+                     * plt.grid(True, color='#e2e8f0', alpha=0.7)
                    - 맨 마지막에 plt.show()를 작성하지 마.
                 """
 
@@ -364,7 +360,7 @@ if uploaded_image:
                     st.error("🚨 선택한 API 키의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
 
 # -------------------------------------------------------------------
-# 해설 출력 & 인터랙티브 슬라이더 그래프 렌더링
+# 해설 출력 & 라이트 모드 그래프 렌더링
 # -------------------------------------------------------------------
 if st.session_state["last_explanation"]:
     st.divider()
@@ -385,7 +381,7 @@ if st.session_state["last_explanation"]:
 
         try:
             plt.close("all")
-            plt.style.use('dark_background')
+            plt.style.use('default')
 
             sys_name = platform.system()
             if sys_name == 'Windows':
@@ -406,16 +402,16 @@ if st.session_state["last_explanation"]:
             exec(python_code, local_scope)
 
             fig = plt.gcf()
-            fig.patch.set_facecolor('#111827')
+            fig.patch.set_facecolor('#ffffff')
 
             for ax in fig.get_axes():
-                ax.set_facecolor('#1e293b')
-                ax.tick_params(colors='white', labelsize=10)
-                ax.xaxis.label.set_color('white')
-                ax.yaxis.label.set_color('white')
-                ax.title.set_color('white')
+                ax.set_facecolor('#ffffff')
+                ax.tick_params(colors='#0f172a', labelsize=10)
+                ax.xaxis.label.set_color('#0f172a')
+                ax.yaxis.label.set_color('#0f172a')
+                ax.title.set_color('#0f172a')
                 for spine in ax.spines.values():
-                    spine.set_color('#475569')
+                    spine.set_color('#cbd5e1')
 
             st.pyplot(fig, use_container_width=True)
             plt.close("all")
